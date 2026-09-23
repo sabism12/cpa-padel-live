@@ -1,0 +1,6 @@
+{
+  "name": "CPA Padel Tournament",
+  "description": "Live results, court schedules, scorekeeper terminal, and tournament administration for CPA Padel Tournament.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

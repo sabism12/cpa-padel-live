@@ -1,0 +1,383 @@
+@import "tailwindcss";
+
+/* ===========================================================================
+   GENERAL SANS  -  body text and UI  (--font-sans / default site font)
+   Source: public/fonts/GeneralSans_Complete/Fonts/WEB/fonts/
+   Served from: /fonts/GeneralSans_Complete/Fonts/WEB/fonts/
+   6 weights (200-700), each with a true italic cut.
+   =========================================================================== */
+
+/* 200 - Extralight */
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Extralight.woff2') format('woff2'),
+       url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Extralight.woff') format('woff');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-ExtralightItalic.woff2') format('woff2'),
+       url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-ExtralightItalic.woff') format('woff');
+  font-weight: 200;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* 300 - Light */
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Light.woff2') format('woff2'),
+       url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Light.woff') format('woff');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-LightItalic.woff2') format('woff2'),
+       url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-LightItalic.woff') format('woff');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* 400 - Regular */
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Regular.woff2') format('woff2'),
+       url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Italic.woff2') format('woff2'),
+       url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Italic.woff') format('woff');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* 500 - Medium */
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Medium.woff2') format('woff2'),
+       url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Medium.woff') format('woff');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-MediumItalic.woff2') format('woff2'),
+       url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-MediumItalic.woff') format('woff');
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* 600 - Semibold */
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Semibold.woff2') format('woff2'),
+       url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Semibold.woff') format('woff');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-SemiboldItalic.woff2') format('woff2'),
+       url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-SemiboldItalic.woff') format('woff');
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* 700 - Bold */
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Bold.woff2') format('woff2'),
+       url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Bold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'General Sans';
+  src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-BoldItalic.woff2') format('woff2'),
+       url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-BoldItalic.woff') format('woff');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ===========================================================================
+   MARSDEN SLIM  -  headings and titles  (--font-heading / --font-display)
+   Source: public/fonts/MarsdenSlim/   Served from: /fonts/MarsdenSlim/
+   12 weights. The vendor's stylesheet is unusable (it gives every file
+   usWeightClass 400 and collapses Black/Heavy onto 900, Hairline/Ultra/
+   Super onto 400), so the order below was derived by measuring the actual
+   stem thickness of each face. Note "Ultra" is one of the HEAVIEST cuts
+   (16.8% of em), not a light one.
+   =========================================================================== */
+
+/* 100 - Hairline   (stem 2.2%) */
+@font-face {
+  font-family: 'Marsden Slim';
+  src: url('/fonts/MarsdenSlim/Marsden-S-Hairline.woff2') format('woff2'),
+       url('/fonts/MarsdenSlim/Marsden-S-Hairline.woff') format('woff');
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 200 - Thin   (2.7%) */
+@font-face {
+  font-family: 'Marsden Slim';
+  src: url('/fonts/MarsdenSlim/Marsden-S-Thin.woff2') format('woff2'),
+       url('/fonts/MarsdenSlim/Marsden-S-Thin.woff') format('woff');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 300 - ExtraLight   (3.5%) */
+@font-face {
+  font-family: 'Marsden Slim';
+  src: url('/fonts/MarsdenSlim/Marsden-S-ExtraLight.woff2') format('woff2'),
+       url('/fonts/MarsdenSlim/Marsden-S-ExtraLight.woff') format('woff');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 350 - Light   (4.7%) */
+@font-face {
+  font-family: 'Marsden Slim';
+  src: url('/fonts/MarsdenSlim/Marsden-S-Light.woff2') format('woff2'),
+       url('/fonts/MarsdenSlim/Marsden-S-Light.woff') format('woff');
+  font-weight: 350;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 400 - Regular   (6.0%) */
+@font-face {
+  font-family: 'Marsden Slim';
+  src: url('/fonts/MarsdenSlim/Marsden-S-Regular.woff2') format('woff2'),
+       url('/fonts/MarsdenSlim/Marsden-S-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 500 - Medium   (7.6%) */
+@font-face {
+  font-family: 'Marsden Slim';
+  src: url('/fonts/MarsdenSlim/Marsden-S-Medium.woff2') format('woff2'),
+       url('/fonts/MarsdenSlim/Marsden-S-Medium.woff') format('woff');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 600 - SemiBold   (9.3%) */
+@font-face {
+  font-family: 'Marsden Slim';
+  src: url('/fonts/MarsdenSlim/Marsden-S-SemiBold.woff2') format('woff2'),
+       url('/fonts/MarsdenSlim/Marsden-S-SemiBold.woff') format('woff');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 700 - Bold   (11.3%) */
+@font-face {
+  font-family: 'Marsden Slim';
+  src: url('/fonts/MarsdenSlim/Marsden-S-Bold.woff2') format('woff2'),
+       url('/fonts/MarsdenSlim/Marsden-S-Bold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 800 - Heavy   (13.0%) */
+@font-face {
+  font-family: 'Marsden Slim';
+  src: url('/fonts/MarsdenSlim/Marsden-S-Heavy.woff2') format('woff2'),
+       url('/fonts/MarsdenSlim/Marsden-S-Heavy.woff') format('woff');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 850 - Black   (15.0%) */
+@font-face {
+  font-family: 'Marsden Slim';
+  src: url('/fonts/MarsdenSlim/Marsden-S-Black.woff2') format('woff2'),
+       url('/fonts/MarsdenSlim/Marsden-S-Black.woff') format('woff');
+  font-weight: 850;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 880 - Ultra   (16.8%) - one of the heaviest cuts, not a light one */
+@font-face {
+  font-family: 'Marsden Slim';
+  src: url('/fonts/MarsdenSlim/Marsden-S-Ultra.woff2') format('woff2'),
+       url('/fonts/MarsdenSlim/Marsden-S-Ultra.woff') format('woff');
+  font-weight: 880;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 900 - Super   (18.4%) - heaviest; this is what `font-black` headings use */
+@font-face {
+  font-family: 'Marsden Slim';
+  src: url('/fonts/MarsdenSlim/Marsden-S-Super.woff2') format('woff2'),
+       url('/fonts/MarsdenSlim/Marsden-S-Super.woff') format('woff');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  /* General Sans is the site default (body text + UI). */
+  --font-sans: 'General Sans', "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Marsden Slim for titles and headings. `font-display` is kept as an alias
+     because the existing markup uses `font-display` throughout. */
+  --font-heading: 'Marsden Slim', "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Marsden Slim', "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+
+  /* Labels, times and scores use `font-mono`. Kept on the site font so the
+     whole UI matches; swap back to a monospace stack for tabular digits. */
+  --font-mono: 'General Sans', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-padel-volt: #ccff00;
+  --color-padel-neon: #a3e635;
+  --color-padel-blue: #0284c7;
+  --color-padel-dark: #090d16;
+  --color-wta-green: #00df81;
+  --color-wta-plum: #1a0038;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    /* Page wash, sampled pixel-by-pixel from the WTA reference capture:
+       vivid green at the top -> near-white mint through the middle of the
+       content -> vivid green returning near the footer -> light mint at the
+       very bottom. Set on <body> so it spans the whole document. */
+    background-color: #00e098;
+    background-image: linear-gradient(
+      180deg,
+      #00e098 0%,
+      #00e198 3%,
+      #00da83 8%,
+      #1eda85 13%,
+      #55de98 19%,
+      #84e4ac 24%,
+      #baedce 32%,
+      #e1f4e5 40%,
+      #f1f8f0 48%,
+      #e3f7e8 56%,
+      #bff1d9 64%,
+      #90edc9 72%,
+      #50eaba 80%,
+      #2de9b6 84%,
+      #03e8b2 88%,
+      #00ecbb 92%,
+      #00efc5 96%,
+      #6ef5dc 100%
+    );
+    background-repeat: no-repeat;
+    color: #0f172a;
+    min-height: 100vh;
+  }
+
+  /* Marsden Slim on every heading element, defaulting to Bold (700).
+     Utility classes such as `font-sans` / `font-mono` still win where applied. */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+  }
+}
+
+@keyframes tickerMarquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-ticker {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: tickerMarquee 25s linear infinite;
+}
+
+.animate-ticker:hover {
+  animation-play-state: paused;
+}
+
+/* Fluid expand / collapse used by the mobile player accordion.
+   Animating grid-template-rows lets the panel grow to its natural
+   height without any hardcoded max-height. */
+.accordion-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 340ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.accordion-panel.is-open {
+  grid-template-rows: 1fr;
+}
+
+.accordion-panel > .accordion-panel-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.accordion-panel > .accordion-panel-inner > * {
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 220ms ease, transform 340ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.accordion-panel.is-open > .accordion-panel-inner > * {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 60ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accordion-panel,
+  .accordion-panel > .accordion-panel-inner > * {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Title weight guard.
+   Marsden Slim's heaviest cuts (800 Heavy / 850 Black / 880 Ultra / 900 Super)
+   are for display numerals only. Titles must never exceed Bold (700).
+   This block is deliberately UNLAYERED: unlayered rules outrank every named
+   cascade layer, so it beats Tailwind's utilities even though `.font-black`
+   is more specific than `h1`. `font-semibold` (600) still passes through.
+   --------------------------------------------------------------------------- */
+:is(h1, h2, h3, h4, h5, h6).font-black,
+:is(h1, h2, h3, h4, h5, h6).font-extrabold {
+  font-weight: 700;
+}

@@ -1,0 +1,15 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Live tournament state - the server rewrites this on every score update.
+# A fresh clone regenerates it from server/seedData.ts on first start.
+data/
+
+# Font source archives (the fonts themselves are already extracted alongside)
+public/fonts/*.zip

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Font Specimen — Marsden Slim / General Sans</title>
+    <style>
+      @font-face { font-family: 'Marsden Slim'; src: url('/fonts/MarsdenSlim/Marsden-S-Hairline.woff2') format('woff2'), url('/fonts/MarsdenSlim/Marsden-S-Hairline.woff') format('woff'); font-weight: 100; font-style: normal; font-display: swap; }
+      @font-face { font-family: 'Marsden Slim'; src: url('/fonts/MarsdenSlim/Marsden-S-Thin.woff2') format('woff2'), url('/fonts/MarsdenSlim/Marsden-S-Thin.woff') format('woff'); font-weight: 200; font-style: normal; font-display: swap; }
+      @font-face { font-family: 'Marsden Slim'; src: url('/fonts/MarsdenSlim/Marsden-S-ExtraLight.woff2') format('woff2'), url('/fonts/MarsdenSlim/Marsden-S-ExtraLight.woff') format('woff'); font-weight: 300; font-style: normal; font-display: swap; }
+      @font-face { font-family: 'Marsden Slim'; src: url('/fonts/MarsdenSlim/Marsden-S-Light.woff2') format('woff2'), url('/fonts/MarsdenSlim/Marsden-S-Light.woff') format('woff'); font-weight: 350; font-style: normal; font-display: swap; }
+      @font-face { font-family: 'Marsden Slim'; src: url('/fonts/MarsdenSlim/Marsden-S-Regular.woff2') format('woff2'), url('/fonts/MarsdenSlim/Marsden-S-Regular.woff') format('woff'); font-weight: 400; font-style: normal; font-display: swap; }
+      @font-face { font-family: 'Marsden Slim'; src: url('/fonts/MarsdenSlim/Marsden-S-Medium.woff2') format('woff2'), url('/fonts/MarsdenSlim/Marsden-S-Medium.woff') format('woff'); font-weight: 500; font-style: normal; font-display: swap; }
+      @font-face { font-family: 'Marsden Slim'; src: url('/fonts/MarsdenSlim/Marsden-S-SemiBold.woff2') format('woff2'), url('/fonts/MarsdenSlim/Marsden-S-SemiBold.woff') format('woff'); font-weight: 600; font-style: normal; font-display: swap; }
+      @font-face { font-family: 'Marsden Slim'; src: url('/fonts/MarsdenSlim/Marsden-S-Bold.woff2') format('woff2'), url('/fonts/MarsdenSlim/Marsden-S-Bold.woff') format('woff'); font-weight: 700; font-style: normal; font-display: swap; }
+      @font-face { font-family: 'Marsden Slim'; src: url('/fonts/MarsdenSlim/Marsden-S-Heavy.woff2') format('woff2'), url('/fonts/MarsdenSlim/Marsden-S-Heavy.woff') format('woff'); font-weight: 800; font-style: normal; font-display: swap; }
+      @font-face { font-family: 'Marsden Slim'; src: url('/fonts/MarsdenSlim/Marsden-S-Black.woff2') format('woff2'), url('/fonts/MarsdenSlim/Marsden-S-Black.woff') format('woff'); font-weight: 850; font-style: normal; font-display: swap; }
+      @font-face { font-family: 'Marsden Slim'; src: url('/fonts/MarsdenSlim/Marsden-S-Ultra.woff2') format('woff2'), url('/fonts/MarsdenSlim/Marsden-S-Ultra.woff') format('woff'); font-weight: 880; font-style: normal; font-display: swap; }
+      @font-face { font-family: 'Marsden Slim'; src: url('/fonts/MarsdenSlim/Marsden-S-Super.woff2') format('woff2'), url('/fonts/MarsdenSlim/Marsden-S-Super.woff') format('woff'); font-weight: 900; font-style: normal; font-display: swap; }
+
+      @font-face { font-family: 'General Sans'; src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+      @font-face { font-family: 'General Sans'; src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+      @font-face { font-family: 'General Sans'; src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Semibold.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+      @font-face { font-family: 'General Sans'; src: url('/fonts/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Bold.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+
+      body { margin: 0; padding: 24px; background: #00df81; color: #170036; font-family: 'General Sans', system-ui, sans-serif; }
+      h1 { font-family: 'Marsden Slim'; font-weight: 900; font-size: 44px; margin: 0 0 4px; text-transform: uppercase; }
+      .panel { background: #fff; border-radius: 16px; padding: 16px 20px; margin-bottom: 20px; box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+      .row { display: flex; align-items: baseline; gap: 16px; padding: 6px 0; border-bottom: 1px solid #eee; }
+      .row:last-child { border-bottom: 0; }
+      .meta { font-size: 11px; font-family: ui-monospace, Consolas, monospace; color: #555; width: 210px; flex-shrink: 0; }
+      .sample { font-family: 'Marsden Slim'; font-size: 34px; text-transform: uppercase; letter-spacing: -0.025em; line-height: 1; }
+      .ok { color: #067a3f; font-weight: 700; }
+      .bad { color: #b00020; font-weight: 700; }
+      code { background: #f2f2f2; padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+      .big { font-family: 'Marsden Slim'; font-weight: 900; font-size: 72px; text-transform: uppercase; letter-spacing: -0.03em; line-height: 0.95; }
+    </style>
+  </head>
+  <body>
+    <h1>Font Specimen</h1>
+    <p style="margin-top:0;font-size:13px">
+      Open this at <code>http://localhost:3000/font-specimen.html</code>
+    </p>
+
+    <div class="panel">
+      <strong>1. Is each face actually loaded by the browser?</strong>
+      <div id="diag" style="margin-top:10px"></div>
+    </div>
+
+    <div class="panel">
+      <strong>2. Marsden Slim — every weight, same text</strong>
+      <div id="weights" style="margin-top:10px"></div>
+    </div>
+
+    <div class="panel">
+      <strong>3. Reference size</strong>
+      <div class="big">What's On</div>
+    </div>
+
+    <div class="panel">
+      <strong>4. General Sans (body font)</strong>
+      <p style="font-family:'General Sans';font-weight:400;font-size:18px;margin:10px 0 4px">
+        400 Regular — The quick brown fox jumps over the lazy dog.
+      </p>
+      <p style="font-family:'General Sans';font-weight:500;font-size:18px;margin:4px 0">
+        500 Medium — The quick brown fox jumps over the lazy dog.
+      </p>
+      <p style="font-family:'General Sans';font-weight:700;font-size:18px;margin:4px 0">
+        700 Bold — The quick brown fox jumps over the lazy dog.
+      </p>
+    </div>
+
+    <script>
+      const MARSDEN = [
+        ['100 Hairline', 100, 'Marsden-S-Hairline'],
+        ['200 Thin', 200, 'Marsden-S-Thin'],
+        ['300 ExtraLight', 300, 'Marsden-S-ExtraLight'],
+        ['350 Light', 350, 'Marsden-S-Light'],
+        ['400 Regular', 400, 'Marsden-S-Regular'],
+        ['500 Medium', 500, 'Marsden-S-Medium'],
+        ['600 SemiBold', 600, 'Marsden-S-SemiBold'],
+        ['700 Bold', 700, 'Marsden-S-Bold'],
+        ['800 Heavy', 800, 'Marsden-S-Heavy'],
+        ['850 Black', 850, 'Marsden-S-Black'],
+        ['880 Ultra', 880, 'Marsden-S-Ultra'],
+        ['900 Super', 900, 'Marsden-S-Super'],
+      ];
+
+      const diag = document.getElementById('diag');
+      const weights = document.getElementById('weights');
+
+      MARSDEN.forEach(([label, weight, file]) => {
+        const row = document.createElement('div');
+        row.className = 'row';
+        const loaded = document.fonts.check(weight + ' 34px "Marsden Slim"');
+        row.innerHTML =
+          '<span class="meta">' + weight + ' ' + label.replace(/^\d+ /, '') +
+          ' <span class="' + (loaded ? 'ok' : 'bad') + '">' + (loaded ? 'LOADED' : 'NOT LOADED') + '</span></span>' +
+          '<span class="sample" style="font-weight:' + weight + '">What\'s On</span>';
+        weights.appendChild(row);
+      });
+
+      // Explicitly request every face, then re-check, so the result is accurate
+      // even on a cold cache.
+      Promise.all(
+        MARSDEN.map(([, weight]) => document.fonts.load(weight + ' 34px "Marsden Slim"').catch(() => {}))
+      ).then(() => {
+        diag.innerHTML = '';
+        const families = ['Marsden Slim', 'General Sans'];
+        const rows = [];
+        MARSDEN.forEach(([label, weight]) => {
+          const ok = document.fonts.check(weight + ' 34px "Marsden Slim"');
+          rows.push(
+            '<div class="row"><span class="meta">Marsden Slim ' + weight + '</span>' +
+            '<span class="' + (ok ? 'ok' : 'bad') + '">' + (ok ? 'LOADED' : 'NOT LOADED — falling back') + '</span></div>'
+          );
+        });
+        [400, 500, 600, 700].forEach((w) => {
+          const ok = document.fonts.check(w + ' 18px "General Sans"');
+          rows.push(
+            '<div class="row"><span class="meta">General Sans ' + w + '</span>' +
+            '<span class="' + (ok ? 'ok' : 'bad') + '">' + (ok ? 'LOADED' : 'NOT LOADED — falling back') + '</span></div>'
+          );
+        });
+        diag.innerHTML = rows.join('');
+      });
+    </script>
+  </body>
+</html>

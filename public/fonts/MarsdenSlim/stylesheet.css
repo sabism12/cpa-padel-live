@@ -1,0 +1,156 @@
+@font-face {
+    font-family: 'Marsden Slim';
+    src: url('Marsden-S-Bold.eot');
+    src: local('Marsden Slim Bold'), local('Marsden-S-Bold'),
+        url('Marsden-S-Bold.eot?#iefix') format('embedded-opentype'),
+        url('Marsden-S-Bold.woff2') format('woff2'),
+        url('Marsden-S-Bold.woff') format('woff'),
+        url('Marsden-S-Bold.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Marsden Slim';
+    src: url('Marsden-S-Black.eot');
+    src: local('Marsden Slim Black'), local('Marsden-S-Black'),
+        url('Marsden-S-Black.eot?#iefix') format('embedded-opentype'),
+        url('Marsden-S-Black.woff2') format('woff2'),
+        url('Marsden-S-Black.woff') format('woff'),
+        url('Marsden-S-Black.ttf') format('truetype');
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Marsden Slim Extra';
+    src: url('Marsden-S-ExtraLight.eot');
+    src: local('Marsden Slim Extra Light'), local('Marsden-S-ExtraLight'),
+        url('Marsden-S-ExtraLight.eot?#iefix') format('embedded-opentype'),
+        url('Marsden-S-ExtraLight.woff2') format('woff2'),
+        url('Marsden-S-ExtraLight.woff') format('woff'),
+        url('Marsden-S-ExtraLight.ttf') format('truetype');
+    font-weight: 200;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Marsden Slim Hairline';
+    src: url('Marsden-S-Hairline.eot');
+    src: local('Marsden Slim Hairline'), local('Marsden-S-Hairline'),
+        url('Marsden-S-Hairline.eot?#iefix') format('embedded-opentype'),
+        url('Marsden-S-Hairline.woff2') format('woff2'),
+        url('Marsden-S-Hairline.woff') format('woff'),
+        url('Marsden-S-Hairline.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Marsden Slim Ultra';
+    src: url('Marsden-S-Ultra.eot');
+    src: local('Marsden Slim Ultra'), local('Marsden-S-Ultra'),
+        url('Marsden-S-Ultra.eot?#iefix') format('embedded-opentype'),
+        url('Marsden-S-Ultra.woff2') format('woff2'),
+        url('Marsden-S-Ultra.woff') format('woff'),
+        url('Marsden-S-Ultra.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Marsden Slim';
+    src: url('Marsden-S-Regular.eot');
+    src: local('Marsden Slim'), local('Marsden-S-Regular'),
+        url('Marsden-S-Regular.eot?#iefix') format('embedded-opentype'),
+        url('Marsden-S-Regular.woff2') format('woff2'),
+        url('Marsden-S-Regular.woff') format('woff'),
+        url('Marsden-S-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Marsden Slim Super';
+    src: url('Marsden-S-Super.eot');
+    src: local('Marsden Slim Super'), local('Marsden-S-Super'),
+        url('Marsden-S-Super.eot?#iefix') format('embedded-opentype'),
+        url('Marsden-S-Super.woff2') format('woff2'),
+        url('Marsden-S-Super.woff') format('woff'),
+        url('Marsden-S-Super.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Marsden Slim';
+    src: url('Marsden-S-Light.eot');
+    src: local('Marsden Slim Light'), local('Marsden-S-Light'),
+        url('Marsden-S-Light.eot?#iefix') format('embedded-opentype'),
+        url('Marsden-S-Light.woff2') format('woff2'),
+        url('Marsden-S-Light.woff') format('woff'),
+        url('Marsden-S-Light.ttf') format('truetype');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Marsden Slim Semi';
+    src: url('Marsden-S-SemiBold.eot');
+    src: local('Marsden Slim Semi Bold'), local('Marsden-S-SemiBold'),
+        url('Marsden-S-SemiBold.eot?#iefix') format('embedded-opentype'),
+        url('Marsden-S-SemiBold.woff2') format('woff2'),
+        url('Marsden-S-SemiBold.woff') format('woff'),
+        url('Marsden-S-SemiBold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Marsden Slim';
+    src: url('Marsden-S-Thin.eot');
+    src: local('Marsden Slim Thin'), local('Marsden-S-Thin'),
+        url('Marsden-S-Thin.eot?#iefix') format('embedded-opentype'),
+        url('Marsden-S-Thin.woff2') format('woff2'),
+        url('Marsden-S-Thin.woff') format('woff'),
+        url('Marsden-S-Thin.ttf') format('truetype');
+    font-weight: 100;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Marsden Slim';
+    src: url('Marsden-S-Medium.eot');
+    src: local('Marsden Slim Medium'), local('Marsden-S-Medium'),
+        url('Marsden-S-Medium.eot?#iefix') format('embedded-opentype'),
+        url('Marsden-S-Medium.woff2') format('woff2'),
+        url('Marsden-S-Medium.woff') format('woff'),
+        url('Marsden-S-Medium.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Marsden Slim';
+    src: url('Marsden-S-Heavy.eot');
+    src: local('Marsden Slim Heavy'), local('Marsden-S-Heavy'),
+        url('Marsden-S-Heavy.eot?#iefix') format('embedded-opentype'),
+        url('Marsden-S-Heavy.woff2') format('woff2'),
+        url('Marsden-S-Heavy.woff') format('woff'),
+        url('Marsden-S-Heavy.ttf') format('truetype');
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
+
