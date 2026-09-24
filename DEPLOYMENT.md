@@ -97,6 +97,7 @@ Required Render environment variables:
 | Variable | Value |
 | --- | --- |
 | `NODE_ENV` | `production` (set by the Blueprint) |
+| `NODE_VERSION` | `22.23.3` (also pinned in `.node-version`) |
 | `TOURNAMENT_STORAGE` | `supabase` (set by the Blueprint) |
 | `SESSION_SECRET` | At least 32 private random characters (Render generates one) |
 | `SUPABASE_URL` | Project URL copied from Supabase |
@@ -153,6 +154,7 @@ current account flow yourself if a no-card signup is essential.
 ## Troubleshooting
 
 - **Render service fails to start:** Check Render logs and confirm `SESSION_SECRET`, `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` are configured. A fresh database also needs both `INITIAL_*` credentials.
+- **Supabase logs show `TypeError: fetch failed`:** Check the redacted cause entries in Render logs (for example, the error code/name/message) and the logged Supabase hostname. The installed `@supabase/supabase-js` declares Node `>=22`; Node 26 meets that range, so this message alone does not prove a Node-version incompatibility. This project pins Node `22.23.3` to use the stable Node 22 LTS runtime. Confirm Render's `NODE_VERSION` is not still overridden to 26.10.0, then check DNS/network reachability to the Supabase hostname and the service URL configuration. The service-role key is never logged.
 - **Supabase table/RPC error:** Run the complete `supabase/tournament_state.sql` in SQL Editor. Confirm the table and both functions exist and RLS is enabled.
 - **Admin login fails:** Existing Supabase state keeps its saved password. Changing `INITIAL_ADMIN_PASSWORD` after initialization does not change that saved password; update it through `/admin` → **Rules & Scoring**.
 - **Draw state missing after restart:** Confirm `TOURNAMENT_STORAGE=supabase`, and that the service uses the same Supabase project URL and service-role key. Inspect the singleton row in Table Editor.

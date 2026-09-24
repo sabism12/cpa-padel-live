@@ -64,41 +64,128 @@ class JsonFileStatePersistence<T> implements StatePersistence<T> {
 
 class SupabaseStatePersistence<T> implements StatePersistence<T> {
   private readonly client: SupabaseClient;
+  private readonly hostname: string;
+  private readonly serviceRoleKey: string;
 
   constructor(url: string, serviceRoleKey: string) {
+    try {
+      this.hostname = new URL(url).hostname;
+    } catch {
+      throw new Error('SUPABASE_URL is invalid; expected a valid HTTPS project URL.');
+    }
+    this.serviceRoleKey = serviceRoleKey;
     this.client = createClient(url, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
     });
   }
 
-  async load(): Promise<T | null> {
-    const { data, error } = await this.client
-      .from('tournament_state')
-      .select('state')
-      .eq('id', 'singleton')
-      .maybeSingle();
+  /** Log nested fetch causes without ever logging the configured service key. */
+  private reportRequestFailure(operation: string, rootError: unknown): Error {
+    const causes: Array<{ name: string; code: string | null; message: string }> = [];
+    const pending: unknown[] = [rootError];
+    const visited = new Set<object>();
 
-    if (error) throw new Error(`Failed to load tournament state from Supabase: ${error.message}`);
-    return (data?.state as T | undefined) ?? null;
+    const redact = (value: unknown): string => {
+      let text = typeof value === 'string' ? value : String(value ?? '');
+      if (this.serviceRoleKey) text = text.split(this.serviceRoleKey).join('[REDACTED]');
+      text = text.replace(/(authorization|apikey)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]');
+      return text.slice(0, 1000);
+    };
+
+    while (pending.length && causes.length < 10) {
+      const current = pending.shift();
+      if (!current || typeof current !== 'object' || visited.has(current)) continue;
+      visited.add(current);
+
+      const error = current as {
+        name?: unknown;
+        code?: unknown;
+        message?: unknown;
+        cause?: unknown;
+        errors?: unknown;
+      };
+      causes.push({
+        name: redact(
+          (typeof error.message === 'string' && error.message.match(/^([A-Za-z]+Error)\s*:/)?.[1]) ||
+            error.name ||
+            'Error'
+        ),
+        code: error.code == null || error.code === '' ? null : redact(error.code),
+        message: redact(error.message || current),
+      });
+
+      if (error.cause) pending.push(error.cause);
+      if (Array.isArray(error.errors)) pending.push(...error.errors);
+
+      // postgrest-js normalizes a rejected fetch into its API error object and
+      // serializes the original cause into `details`. Recover that cause line
+      // so TypeError: fetch failed still includes the underlying DNS/socket
+      // error name, code, and message in Render logs.
+      if (typeof (error as any).details === 'string') {
+        for (const line of (error as any).details.split(/\r?\n/)) {
+          const match = line.match(/^\s*Caused by:\s*([^:]+):\s*(.*)$/);
+          if (!match) continue;
+          const codeMatch = match[2].match(/\s+\(([A-Z][A-Z0-9_-]+)\)$/);
+          const message = codeMatch ? match[2].slice(0, codeMatch.index).trim() : match[2].trim();
+          causes.push({
+            name: redact(match[1]),
+            code: codeMatch ? redact(codeMatch[1]) : null,
+            message: redact(message),
+          });
+        }
+      }
+    }
+
+    console.error(
+      `[Supabase] ${operation} request failed`,
+      JSON.stringify({ hostname: this.hostname, causes })
+    );
+
+    // Do not attach the raw fetch error as Error.cause: startup error handlers
+    // may log it, which could accidentally print headers or credential data.
+    return new Error(`Supabase ${operation} failed for host ${this.hostname}; see redacted cause details above.`);
+  }
+
+  async load(): Promise<T | null> {
+    try {
+      const { data, error } = await this.client
+        .from('tournament_state')
+        .select('state')
+        .eq('id', 'singleton')
+        .maybeSingle();
+
+      if (error) throw error;
+      return (data?.state as T | undefined) ?? null;
+    } catch (error) {
+      throw this.reportRequestFailure('load', error);
+    }
   }
 
   async initialize(initialState: T): Promise<T> {
     // The database function uses INSERT ... ON CONFLICT DO NOTHING, then
     // returns the stored row. Concurrent/restarting servers cannot overwrite
     // an already-saved draw with seed data.
-    const { data, error } = await this.client.rpc('initialize_tournament_state', {
-      initial_state: initialState,
-    });
-    if (error) throw new Error(`Failed to initialize tournament state in Supabase: ${error.message}`);
-    if (!data) throw new Error('Supabase initialization returned no tournament state.');
-    return data as T;
+    try {
+      const { data, error } = await this.client.rpc('initialize_tournament_state', {
+        initial_state: initialState,
+      });
+      if (error) throw error;
+      if (!data) throw new Error('Supabase initialization returned no tournament state.');
+      return data as T;
+    } catch (error) {
+      throw this.reportRequestFailure('initialize', error);
+    }
   }
 
   async save(state: T): Promise<void> {
-    const { error } = await this.client.rpc('save_tournament_state', {
-      next_state: state,
-    });
-    if (error) throw new Error(`Failed to save tournament state to Supabase: ${error.message}`);
+    try {
+      const { error } = await this.client.rpc('save_tournament_state', {
+        next_state: state,
+      });
+      if (error) throw error;
+    } catch (error) {
+      throw this.reportRequestFailure('save', error);
+    }
   }
 }
 

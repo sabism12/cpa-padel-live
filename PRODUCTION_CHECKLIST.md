@@ -17,6 +17,7 @@
 - [ ] `npm run build` works
 - [ ] `npm start` works
 - [ ] Render uses `NODE_ENV=production`
+- [ ] Render uses the pinned Node `22.23.3` runtime
 - [ ] Render supplies `PORT`; server binds to `0.0.0.0`
 - [ ] `TOURNAMENT_STORAGE=supabase`
 - [ ] Supabase table/RPC SQL applied
