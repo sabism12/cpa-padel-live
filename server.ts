@@ -3,24 +3,54 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { tournamentStore } from './server/store';
 import { createSession, verifyToken, requireScorekeeper, requireAdmin } from './server/auth';
+import {
+  initializeDraw,
+  resetDraw,
+  serializeDraw,
+  spinDraw,
+  undoDraw,
+  validatePairs,
+} from './server/drawLogic';
 import { Match, Group, Team, Court } from './src/types';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number.parseInt(process.env.PORT || '3000', 10);
+  if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
+    throw new Error('PORT must be a valid TCP port between 1 and 65535.');
+  }
+
+  // Same-origin browser requests need no CORS headers. Cross-origin tools can
+  // be allowed explicitly with a comma-separated CORS_ORIGINS allowlist.
+  const allowedCorsOrigins = new Set(
+    (process.env.CORS_ORIGINS || '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+  );
 
   app.use(express.json());
 
-  // Enable CORS headers for client requests and external tools
+  // Optional CORS for explicitly allowed external tools; production defaults
+  // to same-origin only rather than a wildcard origin.
   app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    const origin = req.get('Origin');
+    if (origin && allowedCorsOrigins.has(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    }
     if (req.method === 'OPTIONS') {
-      res.sendStatus(200);
+      res.sendStatus(204);
       return;
     }
     next();
+  });
+
+  // Lightweight Render health check. Deliberately reports no secrets or state.
+  app.get('/health', (_req: Request, res: Response) => {
+    res.status(200).json({ status: 'ok' });
   });
 
   // ----------------------------------------------------
@@ -187,19 +217,57 @@ async function startServer() {
 
   // Real-Time Server-Sent Events (SSE)
   app.get('/api/live-events', (req: Request, res: Response) => {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
 
+    // Ask EventSource to retry after a short connection loss and immediately
+    // send a snapshot notification so clients refetch authoritative state.
+    res.write('retry: 3000\n\n');
     res.write(`data: ${JSON.stringify({ type: 'connected', version: tournamentStore.getSettings().version })}\n\n`);
 
+    let closed = false;
     const unregister = tournamentStore.registerSSE((data) => {
-      res.write(`data: ${data}\n\n`);
+      if (!closed && !res.destroyed) res.write(`data: ${data}\n\n`);
     });
 
-    req.on('close', () => {
+    // Heartbeat prevents idle proxies from closing a quiet draw connection.
+    const heartbeat = setInterval(() => {
+      if (!closed && !res.destroyed) res.write(': keep-alive\n\n');
+    }, 25000);
+
+    const cleanup = () => {
+      if (closed) return;
+      closed = true;
+      clearInterval(heartbeat);
       unregister();
-    });
+    };
+    res.on('close', cleanup);
+  });
+
+  // ----------------------------------------------------
+  // LIVE GROUP DRAW (Public read-only snapshot)
+  // ----------------------------------------------------
+
+  // Authoritative draw state. Public so viewers never need to log in.
+  // `sequence` and `groupPlan` are never included, so future results stay secret.
+  app.get('/api/draw', (req: Request, res: Response) => {
+    res.json(serializeDraw(tournamentStore.getDraw()));
+  });
+
+  // Client-side error reports from the draw viewer. Turned off unless
+  // DRAW_CLIENT_ERRORS=on so it never adds noise or grows the log unbounded.
+  app.post('/api/draw/client-error', (req: Request, res: Response) => {
+    if (process.env.DRAW_CLIENT_ERRORS === 'on') {
+      const { message, url, ua, at } = req.body || {};
+      console.warn(
+        `[draw client error] ${at || ''} ${message || 'unknown'} | ${url || ''} | ${ua || ''}`
+      );
+    }
+    res.status(204).end();
   });
 
   // ----------------------------------------------------
@@ -450,6 +518,80 @@ async function startServer() {
     tournamentStore.updateSettings({ version: state.settings.version + 1 });
 
     res.json({ success: true, message: 'Tournament data imported successfully.' });
+  });
+
+  // ----------------------------------------------------
+  // LIVE GROUP DRAW — ADMIN OPERATIONS (Protected: Admin Only)
+  // ----------------------------------------------------
+
+  // Save/replace the 20 player pairs. Only allowed before the draw is initialized.
+  app.post('/api/admin/draw/pairs', requireAdmin, (req: Request, res: Response) => {
+    const { pairs } = req.body || {};
+    const validation = validatePairs(pairs);
+    if (validation.error) {
+      res.status(400).json({ error: validation.error });
+      return;
+    }
+
+    const draw = tournamentStore.getDraw();
+    if (draw.initialized) {
+      res.status(400).json({ error: 'Reset the draw before changing the player pairs.' });
+      return;
+    }
+
+    draw.pairs = validation.pairs!;
+    draw.sequence = [];
+    draw.groupPlan = {};
+    draw.results = [];
+    delete draw.lastSpin;
+    draw.lastSpinAtMs = 0;
+
+    tournamentStore.commitDraw();
+    res.json({ success: true, state: serializeDraw(draw) });
+  });
+
+  // Randomise the reveal order and group assignments (requires exactly 20 pairs).
+  app.post('/api/admin/draw/initialize', requireAdmin, (req: Request, res: Response) => {
+    const draw = tournamentStore.getDraw();
+    const error = initializeDraw(draw);
+    if (error) {
+      res.status(400).json({ error });
+      return;
+    }
+    tournamentStore.commitDraw();
+    res.json({ success: true, state: serializeDraw(draw) });
+  });
+
+  // Reveal the next authoritative pair + group. Atomic: the server decides.
+  app.post('/api/admin/draw/spin', requireAdmin, (req: Request, res: Response) => {
+    const draw = tournamentStore.getDraw();
+    const { error, result } = spinDraw(draw);
+    if (error) {
+      res.status(400).json({ error });
+      return;
+    }
+    tournamentStore.commitDraw();
+    res.json({ success: true, result, state: serializeDraw(draw) });
+  });
+
+  // Undo the most recent reveal.
+  app.post('/api/admin/draw/undo', requireAdmin, (req: Request, res: Response) => {
+    const draw = tournamentStore.getDraw();
+    const error = undoDraw(draw);
+    if (error) {
+      res.status(400).json({ error });
+      return;
+    }
+    tournamentStore.commitDraw();
+    res.json({ success: true, state: serializeDraw(draw) });
+  });
+
+  // Reset the draw back to its pre-draw state. Player pairs are kept.
+  app.post('/api/admin/draw/reset', requireAdmin, (req: Request, res: Response) => {
+    const draw = tournamentStore.getDraw();
+    resetDraw(draw);
+    tournamentStore.commitDraw();
+    res.json({ success: true, state: serializeDraw(draw) });
   });
 
   // ----------------------------------------------------

@@ -1,6 +1,9 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { Group, Team, Court, Match, TournamentSettings, StandingsRow } from '../src/types';
+import { DrawStateRecord } from '../src/draw/types';
+import { createInitialDraw, pairsFromTeams } from './drawLogic';
 import {
   DEFAULT_SETTINGS,
   INITIAL_GROUPS,
@@ -18,6 +21,8 @@ interface TournamentState {
   lastUpdated: string;
   /** Bumped when the stored shape/scheduling rules change, to trigger migrations. */
   formatVersion?: number;
+  /** Authoritative Live Group Draw state (optional for older saves). */
+  draw?: DrawStateRecord;
 }
 
 /**
@@ -98,7 +103,9 @@ function applyGroupCourtDedication(state: any) {
   });
 }
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+// Render mounts persistent disks outside the application directory (usually
+// /var/data). Locally, keep using the existing ignored ./data directory.
+const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(process.cwd(), 'data'));
 const STATE_FILE = path.join(DATA_DIR, 'tournament_state.json');
 
 class TournamentStore {
@@ -110,34 +117,57 @@ class TournamentStore {
   }
 
   private loadOrInitializeState(): TournamentState {
-    try {
-      if (fs.existsSync(STATE_FILE)) {
-        const raw = fs.readFileSync(STATE_FILE, 'utf-8');
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.groups && parsed.teams && parsed.matches) {
-          const hasKnockout = parsed.matches.some((m: any) => m.stage === 'knockout');
-          if (!hasKnockout) {
-            const seedMatches = generateInitialMatches(parsed.groups, parsed.teams, parsed.courts || INITIAL_COURTS);
-            const koOnly = seedMatches.filter((m) => m.stage === 'knockout');
-            parsed.matches.push(...koOnly);
-          }
-
-          // One-time migrations for saves written by an older format.
-          const fromVersion: number = parsed.formatVersion ?? 1;
-          if (fromVersion < FORMAT_VERSION) {
-            if (fromVersion < 2) applyGroupCourtDedication(parsed);
-            if (fromVersion < 3) applyRosterV3(parsed);
-            if (fromVersion < 4) applyQualificationFormatV4(parsed);
-            if (fromVersion < 5) applyPointsForLossV5(parsed);
-            parsed.formatVersion = FORMAT_VERSION;
-            this.persist(parsed);
-          }
-
-          return parsed;
-        }
+    if (fs.existsSync(STATE_FILE)) {
+      let parsed: any;
+      try {
+        parsed = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
+      } catch (err) {
+        throw new Error(
+          `Unable to parse tournament state at ${STATE_FILE}; refusing to replace the existing file.`,
+          { cause: err }
+        );
       }
-    } catch (err) {
-      console.error('Failed reading tournament state, re-initializing seed data:', err);
+
+      if (!parsed || !parsed.groups || !parsed.teams || !parsed.matches) {
+        throw new Error(
+          `Tournament state at ${STATE_FILE} is invalid; refusing to replace the existing file.`
+        );
+      }
+
+      const hasKnockout = parsed.matches.some((m: any) => m.stage === 'knockout');
+      if (!hasKnockout) {
+        const seedMatches = generateInitialMatches(parsed.groups, parsed.teams, parsed.courts || INITIAL_COURTS);
+        const koOnly = seedMatches.filter((m) => m.stage === 'knockout');
+        parsed.matches.push(...koOnly);
+      }
+
+      // One-time migrations for saves written by an older format.
+      const fromVersion: number = parsed.formatVersion ?? 1;
+      if (fromVersion < FORMAT_VERSION) {
+        if (fromVersion < 2) applyGroupCourtDedication(parsed);
+        if (fromVersion < 3) applyRosterV3(parsed);
+        if (fromVersion < 4) applyQualificationFormatV4(parsed);
+        if (fromVersion < 5) applyPointsForLossV5(parsed);
+        parsed.formatVersion = FORMAT_VERSION;
+        this.persist(parsed);
+      }
+
+      // Ensure the Live Group Draw state exists. On first run it is seeded
+      // from the existing tournament roster so the host does not have to
+      // re-type the 20 pairs.
+      if (!parsed.draw) {
+        parsed.draw = createInitialDraw(pairsFromTeams(parsed.teams || INITIAL_TEAMS));
+        this.persist(parsed);
+      }
+
+      return parsed;
+    }
+
+    const initialAdminPassword = process.env.INITIAL_ADMIN_PASSWORD;
+    if (process.env.NODE_ENV === 'production' && !initialAdminPassword) {
+      throw new Error(
+        'INITIAL_ADMIN_PASSWORD must be set before creating production tournament state.'
+      );
     }
 
     const groups = [...INITIAL_GROUPS];
@@ -146,13 +176,17 @@ class TournamentStore {
     const matches = generateInitialMatches(groups, teams, courts);
 
     const initialState: TournamentState = {
-      settings: { ...DEFAULT_SETTINGS },
+      settings: {
+        ...DEFAULT_SETTINGS,
+        adminPasswordHash: initialAdminPassword || DEFAULT_SETTINGS.adminPasswordHash,
+      },
       groups,
       teams,
       courts,
       matches,
       lastUpdated: new Date().toISOString(),
       formatVersion: FORMAT_VERSION,
+      draw: createInitialDraw(pairsFromTeams(teams)),
     };
 
     this.persist(initialState);
@@ -160,13 +194,24 @@ class TournamentStore {
   }
 
   private persist(state: TournamentState) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+
+    // Write to a sibling temp file then rename so a process interruption
+    // cannot leave tournament_state.json half-written or truncated.
+    const temporaryFile = `${STATE_FILE}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
     try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-      fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), 'utf-8');
+      fs.writeFileSync(temporaryFile, JSON.stringify(state, null, 2), {
+        encoding: 'utf-8',
+        mode: 0o600,
+      });
+      fs.renameSync(temporaryFile, STATE_FILE);
     } catch (err) {
-      console.error('Error writing tournament state file:', err);
+      try {
+        if (fs.existsSync(temporaryFile)) fs.unlinkSync(temporaryFile);
+      } catch {
+        // Preserve the original persistence error.
+      }
+      throw new Error(`Unable to persist tournament state in ${DATA_DIR}.`, { cause: err });
     }
   }
 
@@ -210,6 +255,7 @@ class TournamentStore {
       matches,
       lastUpdated: new Date().toISOString(),
       formatVersion: FORMAT_VERSION,
+      draw: createInitialDraw(pairsFromTeams(teams)),
     };
     this.notifyUpdates();
     return this.state;
@@ -217,6 +263,24 @@ class TournamentStore {
 
   public getState() {
     return this.state;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Live Group Draw                                                   */
+  /* ---------------------------------------------------------------- */
+
+  /** The authoritative draw state (created on demand for safety). */
+  public getDraw(): DrawStateRecord {
+    if (!this.state.draw) {
+      this.state.draw = createInitialDraw(pairsFromTeams(this.state.teams));
+    }
+    return this.state.draw;
+  }
+
+  /** Persist + broadcast the current draw state to every connected viewer. */
+  public commitDraw(): DrawStateRecord {
+    this.notifyUpdates();
+    return this.state.draw!;
   }
 
   public getSettings(): TournamentSettings {

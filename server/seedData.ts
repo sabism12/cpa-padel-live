@@ -14,7 +14,7 @@ export const DEFAULT_SETTINGS: TournamentSettings = {
     gamesToWinSet: 6,
     allowDraws: false,
   },
-  adminPasswordHash: 'admin123', // In demo/test default
+  adminPasswordHash: 'admin123', // Local first-run default; configure a private production password
   scorekeeperPin: 'padel2026',
   version: 1,
 };

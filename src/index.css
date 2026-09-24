@@ -381,3 +381,75 @@
 :is(h1, h2, h3, h4, h5, h6).font-extrabold {
   font-weight: 700;
 }
+
+/* ---------------------------------------------------------------------------
+   Live Group Draw animations (used only by the /draw pages).
+   --------------------------------------------------------------------------- */
+@keyframes drawRevealPop {
+  from {
+    opacity: 0;
+    transform: scale(0.82) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.draw-reveal-pop {
+  animation: drawRevealPop 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes drawPulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.draw-pulse {
+  animation: drawPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes drawGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(46, 107, 255, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 46px 10px rgba(46, 107, 255, 0.5);
+  }
+}
+
+.draw-glow {
+  animation: drawGlow 1.8s ease-in-out infinite;
+}
+
+/* The draw is a full-width presentation route. Keep every mobile child inside
+   the layout viewport so long labels or grid intrinsic sizing cannot create a
+   sideways page scroll (which makes centred content appear clipped/off-centre). */
+.draw-viewport {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.draw-viewport > *,
+.draw-viewport main,
+.draw-viewport header,
+.draw-viewport header > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draw-reveal-pop,
+  .draw-pulse,
+  .draw-glow {
+    animation: none;
+  }
+}

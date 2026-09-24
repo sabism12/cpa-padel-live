@@ -11,6 +11,7 @@ import {
   Layers,
   Zap,
   ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 import { Court, Group, Team } from '../types';
 import { EnrichedMatch } from '../api';
@@ -596,6 +597,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 ))}
               </div>
+
+              {/* Live Group Draw — separate lazy-loaded presentation route */}
+              <a
+                href="/draw"
+                className="mt-4 flex items-center gap-3 rounded-xl border border-[#00DF81]/40 bg-[#00DF81]/10 px-3.5 py-2.5 text-xs font-bold text-[#00DF81] transition-colors hover:bg-[#00DF81]/20 sm:text-sm"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Live Group Draw</span>
+              </a>
             </div>
           </div>
         </div>

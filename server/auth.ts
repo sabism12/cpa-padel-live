@@ -11,7 +11,20 @@ export interface AuthenticatedUser {
 const ACTIVE_SESSIONS: Map<string, AuthenticatedUser> = new Map();
 const REVOKED_TOKENS: Set<string> = new Set();
 
-const HMAC_SECRET = process.env.SESSION_SECRET || 'cpa_padel_championship_salt_2026_fixed';
+const configuredSessionSecret = process.env.SESSION_SECRET;
+
+if (
+  process.env.NODE_ENV === 'production' &&
+  (!configuredSessionSecret || configuredSessionSecret.length < 32)
+) {
+  throw new Error(
+    'SESSION_SECRET must be set to a private value of at least 32 characters in production.'
+  );
+}
+
+// For local development, use an ephemeral secret when one is not configured.
+// It is never committed and local sessions naturally expire on server restart.
+const HMAC_SECRET = configuredSessionSecret || crypto.randomBytes(32).toString('hex');
 
 export function createSession(role: 'scorekeeper' | 'admin', name: string): string {
   const issuedAt = Date.now();

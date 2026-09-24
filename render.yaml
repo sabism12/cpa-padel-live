@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: cpa-padel-tournament
+    runtime: node
+    plan: starter
+    numInstances: 1
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: INITIAL_ADMIN_PASSWORD
+        sync: false
+    disk:
+      name: cpa-padel-data
+      mountPath: /var/data
+      sizeGB: 1
