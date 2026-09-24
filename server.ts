@@ -14,6 +14,8 @@ import {
 import { Match, Group, Team, Court } from './src/types';
 
 async function startServer() {
+  // Do not accept requests until the file/Supabase state is fully loaded.
+  await tournamentStore.initialize();
   const app = express();
   const PORT = Number.parseInt(process.env.PORT || '3000', 10);
   if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
@@ -30,6 +32,32 @@ async function startServer() {
   );
 
   app.use(express.json());
+
+  // Mutating endpoints use the existing synchronous store API, which queues
+  // the snapshot write. Delay JSON responses until that queued write is
+  // durable so callers never receive a success before storage confirms it.
+  app.use((req: Request, res: Response, next) => {
+    if (req.method === 'GET' || req.method === 'HEAD') {
+      next();
+      return;
+    }
+
+    const sendJson = res.json.bind(res);
+    res.json = ((...args: any[]) => {
+      void tournamentStore
+        .flushPersistence()
+        .then(() => sendJson(...args))
+        .catch((error) => {
+          console.error(`State persistence failed for ${req.method} ${req.path}.`, error);
+          if (!res.headersSent) {
+            res.status(500);
+            sendJson({ error: 'Unable to persist tournament state.' });
+          }
+        });
+      return res;
+    }) as Response['json'];
+    next();
+  });
 
   // Optional CORS for explicitly allowed external tools; production defaults
   // to same-origin only rather than a wildcard origin.
@@ -254,8 +282,16 @@ async function startServer() {
 
   // Authoritative draw state. Public so viewers never need to log in.
   // `sequence` and `groupPlan` are never included, so future results stay secret.
-  app.get('/api/draw', (req: Request, res: Response) => {
-    res.json(serializeDraw(tournamentStore.getDraw()));
+  app.get('/api/draw', async (req: Request, res: Response) => {
+    try {
+      // Do not let a spectator read a newer in-memory snapshot before its
+      // corresponding Supabase transaction has completed.
+      await tournamentStore.flushPersistence();
+      res.json(serializeDraw(tournamentStore.getDraw()));
+    } catch (error) {
+      console.error('Unable to read the durable public draw snapshot.', error);
+      res.status(503).json({ error: 'The draw state is temporarily unavailable.' });
+    }
   });
 
   // Client-side error reports from the draw viewer. Turned off unless
@@ -279,8 +315,7 @@ async function startServer() {
     const settings = tournamentStore.getSettings();
 
     if (role === 'admin') {
-      const correctPassword = settings.adminPasswordHash || 'admin123';
-      if (password === correctPassword) {
+      if (settings.adminPasswordHash && password === settings.adminPasswordHash) {
         const token = createSession('admin', name || 'Tournament Admin');
         res.json({ token, role: 'admin', name: name || 'Tournament Admin' });
         return;
@@ -290,8 +325,7 @@ async function startServer() {
     }
 
     if (role === 'scorekeeper') {
-      const correctPin = settings.scorekeeperPin || 'padel2026';
-      if (password === correctPin) {
+      if (settings.scorekeeperPin && password === settings.scorekeeperPin) {
         const token = createSession('scorekeeper', name || 'Scorekeeper');
         res.json({ token, role: 'scorekeeper', name: name || 'Scorekeeper' });
         return;
@@ -473,24 +507,33 @@ async function startServer() {
 
   // Settings & Scoring configuration
   app.post('/api/admin/settings', requireAdmin, (req: Request, res: Response) => {
-    const updates = req.body;
+    const updates = { ...(req.body || {}) };
+    if (typeof updates.adminPasswordHash === 'string' && !updates.adminPasswordHash.trim()) {
+      delete updates.adminPasswordHash;
+    }
+    if (typeof updates.scorekeeperPin === 'string' && !updates.scorekeeperPin.trim()) {
+      delete updates.scorekeeperPin;
+    }
     const updated = tournamentStore.updateSettings(updates);
-    res.json({ success: true, settings: updated });
+    const { adminPasswordHash: _adminPassword, scorekeeperPin: _scorekeeperPin, ...safeSettings } = updated;
+    res.json({ success: true, settings: safeSettings });
   });
 
   // Reset to Demo Data
   app.post('/api/admin/reset-demo', requireAdmin, (req: Request, res: Response) => {
     const state = tournamentStore.resetToDemo();
-    res.json({ success: true, state });
+    const { adminPasswordHash: _adminPassword, scorekeeperPin: _scorekeeperPin, ...safeSettings } = state.settings;
+    res.json({ success: true, state: { ...state, settings: safeSettings } });
   });
 
   // Export all tournament data (JSON & CSV compatible)
   app.get('/api/admin/export', requireAdmin, (req: Request, res: Response) => {
     const state = tournamentStore.getState();
     const standings = tournamentStore.calculateStandings();
+    const { adminPasswordHash: _adminPassword, scorekeeperPin: _scorekeeperPin, ...safeSettings } = state.settings;
 
     res.json({
-      tournament: state.settings,
+      tournament: safeSettings,
       groups: state.groups,
       courts: state.courts,
       teams: state.teams,
@@ -606,6 +649,11 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
+    // The production server bundle is stored beside the client build output;
+    // never let express.static expose it or its source map to browsers.
+    app.get(['/server.cjs', '/server.cjs.map'], (_req: Request, res: Response) => {
+      res.sendStatus(404);
+    });
     app.use(express.static(distPath));
     app.get('*', (req: Request, res: Response) => {
       res.sendFile(path.join(distPath, 'index.html'));
@@ -617,4 +665,7 @@ async function startServer() {
   });
 }
 
-startServer();
+startServer().catch((error) => {
+  console.error('CPA Padel server startup failed.', error);
+  process.exitCode = 1;
+});

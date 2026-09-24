@@ -88,8 +88,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
     qualifiersPerGroup: settings?.scoring.qualifiersPerGroup ?? 2,
     wildcardQualifiers: settings?.scoring.wildcardQualifiers ?? 0,
     gamesToWinSet: settings?.scoring.gamesToWinSet ?? 6,
-    scorekeeperPin: settings?.scorekeeperPin || 'padel2026',
-    adminPassword: settings?.adminPasswordHash || 'admin123',
+    // Credentials are never returned by public/admin read APIs. Keep update
+    // fields blank until an admin deliberately enters a replacement.
+    scorekeeperPin: '',
+    adminPassword: '',
   });
 
   useEffect(() => {
@@ -102,8 +104,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
         qualifiersPerGroup: settings.scoring.qualifiersPerGroup,
         wildcardQualifiers: settings.scoring.wildcardQualifiers ?? 0,
         gamesToWinSet: settings.scoring.gamesToWinSet,
-        scorekeeperPin: settings.scorekeeperPin || 'padel2026',
-        adminPassword: settings.adminPasswordHash || 'admin123',
+        scorekeeperPin: '',
+        adminPassword: '',
       });
     }
   }, [settings]);
@@ -338,8 +340,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
       await adminSaveSettings(session.token, {
         name: settingsForm.name,
         location: settingsForm.location,
-        scorekeeperPin: settingsForm.scorekeeperPin,
-        adminPasswordHash: settingsForm.adminPassword,
+        ...(settingsForm.scorekeeperPin.trim()
+          ? { scorekeeperPin: settingsForm.scorekeeperPin.trim() }
+          : {}),
+        ...(settingsForm.adminPassword.trim()
+          ? { adminPasswordHash: settingsForm.adminPassword.trim() }
+          : {}),
         scoring: {
           pointsForWin: Number(settingsForm.pointsForWin),
           pointsForLoss: Number(settingsForm.pointsForLoss),
@@ -349,6 +355,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           wildcardQualifiers: Number(settingsForm.wildcardQualifiers),
         },
       });
+      setSettingsForm((current) => ({ ...current, scorekeeperPin: '', adminPassword: '' }));
       showNotification('success', 'Tournament settings and scoring rules updated.');
       onRefreshData();
     } catch (err: any) {
@@ -885,8 +892,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 Scorekeeper PIN / Passcode
               </label>
               <input
-                type="text"
+                type="password"
                 value={settingsForm.scorekeeperPin}
+                placeholder="Leave blank to keep the current PIN"
                 onChange={(e) =>
                   setSettingsForm({ ...settingsForm, scorekeeperPin: e.target.value })
                 }
@@ -900,6 +908,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <input
                 type="password"
                 value={settingsForm.adminPassword}
+                placeholder="Leave blank to keep the current password"
                 onChange={(e) =>
                   setSettingsForm({ ...settingsForm, adminPassword: e.target.value })
                 }

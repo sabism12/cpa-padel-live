@@ -2,7 +2,7 @@ services:
   - type: web
     name: cpa-padel-tournament
     runtime: node
-    plan: starter
+    plan: free
     numInstances: 1
     buildCommand: npm ci && npm run build
     startCommand: npm start
@@ -10,13 +10,15 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATA_DIR
-        value: /var/data
+      - key: TOURNAMENT_STORAGE
+        value: supabase
       - key: SESSION_SECRET
         generateValue: true
       - key: INITIAL_ADMIN_PASSWORD
         sync: false
-    disk:
-      name: cpa-padel-data
-      mountPath: /var/data
-      sizeGB: 1
+      - key: INITIAL_SCOREKEEPER_PIN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false

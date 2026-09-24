@@ -202,6 +202,11 @@ export function useDrawState() {
       }
     }, 15000);
 
+    // Render Free sleeps after 15 minutes without an inbound HTTP request.
+    // SSE heartbeats are server-to-browser traffic, so make one quiet state
+    // request every 5 minutes while a spectator page remains open.
+    const renderKeepAwake = window.setInterval(() => refresh({ animate: true }), 5 * 60 * 1000);
+
     const onOnline = () => refresh({ animate: true });
     const onVisible = () => {
       if (document.visibilityState === 'visible') refresh({ animate: true });
@@ -212,6 +217,7 @@ export function useDrawState() {
     return () => {
       if (eventSource) eventSource.close();
       window.clearInterval(poll);
+      window.clearInterval(renderKeepAwake);
       window.removeEventListener('online', onOnline);
       document.removeEventListener('visibilitychange', onVisible);
       clearTimers();

@@ -1,9 +1,7 @@
-import fs from 'fs';
-import path from 'path';
-import crypto from 'crypto';
 import { Group, Team, Court, Match, TournamentSettings, StandingsRow } from '../src/types';
 import { DrawStateRecord } from '../src/draw/types';
 import { createInitialDraw, pairsFromTeams } from './drawLogic';
+import { createStatePersistence, StatePersistence } from './statePersistence';
 import {
   DEFAULT_SETTINGS,
   INITIAL_GROUPS,
@@ -103,70 +101,41 @@ function applyGroupCourtDedication(state: any) {
   });
 }
 
-// Render mounts persistent disks outside the application directory (usually
-// /var/data). Locally, keep using the existing ignored ./data directory.
-const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(process.cwd(), 'data'));
-const STATE_FILE = path.join(DATA_DIR, 'tournament_state.json');
-
 class TournamentStore {
-  private state: TournamentState;
+  private state!: TournamentState;
+  private readonly persistence: StatePersistence<TournamentState>;
+  private persistenceQueue: Promise<void> = Promise.resolve();
+  private persistenceError: unknown = null;
   private sseClients: Set<(data: string) => void> = new Set();
 
   constructor() {
-    this.state = this.loadOrInitializeState();
+    this.persistence = createStatePersistence<TournamentState>();
   }
 
-  private loadOrInitializeState(): TournamentState {
-    if (fs.existsSync(STATE_FILE)) {
-      let parsed: any;
-      try {
-        parsed = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
-      } catch (err) {
-        throw new Error(
-          `Unable to parse tournament state at ${STATE_FILE}; refusing to replace the existing file.`,
-          { cause: err }
-        );
-      }
-
-      if (!parsed || !parsed.groups || !parsed.teams || !parsed.matches) {
-        throw new Error(
-          `Tournament state at ${STATE_FILE} is invalid; refusing to replace the existing file.`
-        );
-      }
-
-      const hasKnockout = parsed.matches.some((m: any) => m.stage === 'knockout');
-      if (!hasKnockout) {
-        const seedMatches = generateInitialMatches(parsed.groups, parsed.teams, parsed.courts || INITIAL_COURTS);
-        const koOnly = seedMatches.filter((m) => m.stage === 'knockout');
-        parsed.matches.push(...koOnly);
-      }
-
-      // One-time migrations for saves written by an older format.
-      const fromVersion: number = parsed.formatVersion ?? 1;
-      if (fromVersion < FORMAT_VERSION) {
-        if (fromVersion < 2) applyGroupCourtDedication(parsed);
-        if (fromVersion < 3) applyRosterV3(parsed);
-        if (fromVersion < 4) applyQualificationFormatV4(parsed);
-        if (fromVersion < 5) applyPointsForLossV5(parsed);
-        parsed.formatVersion = FORMAT_VERSION;
-        this.persist(parsed);
-      }
-
-      // Ensure the Live Group Draw state exists. On first run it is seeded
-      // from the existing tournament roster so the host does not have to
-      // re-type the 20 pairs.
-      if (!parsed.draw) {
-        parsed.draw = createInitialDraw(pairsFromTeams(parsed.teams || INITIAL_TEAMS));
-        this.persist(parsed);
-      }
-
-      return parsed;
+  /** Load the authoritative state before accepting HTTP requests. */
+  public async initialize(): Promise<void> {
+    const saved = await this.persistence.load();
+    if (saved) {
+      this.assertValidState(saved);
+      this.state = saved;
+      if (this.migrateLoadedState()) await this.persistence.save(this.state);
+      return;
     }
 
+    // Only construct seed state when the selected storage has no saved row/file.
+    // Supabase initialization is an atomic insert-if-absent operation.
+    const seed = this.createInitialState();
+    this.state = await this.persistence.initialize(seed);
+    this.assertValidState(this.state);
+    if (this.migrateLoadedState()) await this.persistence.save(this.state);
+  }
+
+  private createInitialState(): TournamentState {
     const initialAdminPassword = process.env.INITIAL_ADMIN_PASSWORD;
-    if (process.env.NODE_ENV === 'production' && !initialAdminPassword) {
+    const initialScorekeeperPin = process.env.INITIAL_SCOREKEEPER_PIN;
+    if (process.env.NODE_ENV === 'production' && (!initialAdminPassword || !initialScorekeeperPin)) {
       throw new Error(
-        'INITIAL_ADMIN_PASSWORD must be set before creating production tournament state.'
+        'INITIAL_ADMIN_PASSWORD and INITIAL_SCOREKEEPER_PIN must be set before creating production tournament state.'
       );
     }
 
@@ -175,10 +144,11 @@ class TournamentStore {
     const teams = [...INITIAL_TEAMS];
     const matches = generateInitialMatches(groups, teams, courts);
 
-    const initialState: TournamentState = {
+    return {
       settings: {
         ...DEFAULT_SETTINGS,
-        adminPasswordHash: initialAdminPassword || DEFAULT_SETTINGS.adminPasswordHash,
+        adminPasswordHash: initialAdminPassword || 'admin123',
+        scorekeeperPin: initialScorekeeperPin || 'padel2026',
       },
       groups,
       teams,
@@ -188,50 +158,114 @@ class TournamentStore {
       formatVersion: FORMAT_VERSION,
       draw: createInitialDraw(pairsFromTeams(teams)),
     };
-
-    this.persist(initialState);
-    return initialState;
   }
 
-  private persist(state: TournamentState) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  private assertValidState(state: any): asserts state is TournamentState {
+    if (
+      !state ||
+      !state.settings ||
+      !Array.isArray(state.groups) ||
+      !Array.isArray(state.teams) ||
+      !Array.isArray(state.courts) ||
+      !Array.isArray(state.matches)
+    ) {
+      throw new Error('Saved tournament state is invalid; refusing to replace it with seed data.');
+    }
+  }
 
-    // Write to a sibling temp file then rename so a process interruption
-    // cannot leave tournament_state.json half-written or truncated.
-    const temporaryFile = `${STATE_FILE}.${process.pid}.${crypto.randomBytes(6).toString('hex')}.tmp`;
-    try {
-      fs.writeFileSync(temporaryFile, JSON.stringify(state, null, 2), {
-        encoding: 'utf-8',
-        mode: 0o600,
-      });
-      fs.renameSync(temporaryFile, STATE_FILE);
-    } catch (err) {
-      try {
-        if (fs.existsSync(temporaryFile)) fs.unlinkSync(temporaryFile);
-      } catch {
-        // Preserve the original persistence error.
+  /** Apply existing in-place migrations and report if persistence is needed. */
+  private migrateLoadedState(): boolean {
+    let changed = false;
+    const state = this.state as any;
+    const hasKnockout = state.matches.some((m: any) => m.stage === 'knockout');
+    if (!hasKnockout) {
+      const seedMatches = generateInitialMatches(state.groups, state.teams, state.courts || INITIAL_COURTS);
+      state.matches.push(...seedMatches.filter((m) => m.stage === 'knockout'));
+      changed = true;
+    }
+
+    const fromVersion: number = state.formatVersion ?? 1;
+    if (fromVersion < FORMAT_VERSION) {
+      if (fromVersion < 2) applyGroupCourtDedication(state);
+      if (fromVersion < 3) applyRosterV3(state);
+      if (fromVersion < 4) applyQualificationFormatV4(state);
+      if (fromVersion < 5) applyPointsForLossV5(state);
+      state.formatVersion = FORMAT_VERSION;
+      changed = true;
+    }
+
+    if (!state.draw) {
+      state.draw = createInitialDraw(pairsFromTeams(state.teams || INITIAL_TEAMS));
+      changed = true;
+    }
+
+    if (!state.settings.adminPasswordHash || !state.settings.scorekeeperPin) {
+      const initialAdminPassword = process.env.INITIAL_ADMIN_PASSWORD;
+      const initialScorekeeperPin = process.env.INITIAL_SCOREKEEPER_PIN;
+      if (
+        process.env.NODE_ENV === 'production' &&
+        ((!state.settings.adminPasswordHash && !initialAdminPassword) ||
+          (!state.settings.scorekeeperPin && !initialScorekeeperPin))
+      ) {
+        throw new Error('Missing saved admin credentials; set the corresponding INITIAL_* secret.');
       }
-      throw new Error(`Unable to persist tournament state in ${DATA_DIR}.`, { cause: err });
+      state.settings.adminPasswordHash ||= initialAdminPassword || 'admin123';
+      state.settings.scorekeeperPin ||= initialScorekeeperPin || 'padel2026';
+      changed = true;
+    }
+
+    return changed;
+  }
+
+  private persist() {
+    // Snapshot immediately so queued writes cannot observe later in-memory
+    // mutations and overtake one another.
+    const snapshot = JSON.parse(JSON.stringify(this.state)) as TournamentState;
+    const write = async () => {
+      try {
+        await this.persistence.save(snapshot);
+        this.persistenceError = null;
+      } catch (error) {
+        this.persistenceError = error;
+        console.error('Failed to persist tournament state.', error);
+      }
+    };
+    this.persistenceQueue = this.persistenceQueue.then(write, write);
+  }
+
+  /** Await queued saves before confirming an HTTP mutation to its caller. */
+  public async flushPersistence(): Promise<void> {
+    await this.persistenceQueue;
+    if (this.persistenceError) {
+      throw new Error('Unable to persist tournament state.', { cause: this.persistenceError });
     }
   }
 
   private notifyUpdates() {
     this.state.settings.version += 1;
     this.state.lastUpdated = new Date().toISOString();
-    this.persist(this.state);
+    this.persist();
 
     const payload = JSON.stringify({
       version: this.state.settings.version,
       lastUpdated: this.state.lastUpdated,
     });
 
-    for (const client of this.sseClients) {
-      try {
-        client(payload);
-      } catch {
-        // client may have closed
-      }
-    }
+    // Do not announce a mutation to spectators until the durable adapter has
+    // confirmed it. The per-request response middleware also awaits this save.
+    void this.flushPersistence()
+      .then(() => {
+        for (const client of this.sseClients) {
+          try {
+            client(payload);
+          } catch {
+            // client may have closed
+          }
+        }
+      })
+      .catch(() => {
+        // The mutation endpoint reports the storage error to its caller.
+      });
   }
 
   public registerSSE(client: (data: string) => void): () => void {
@@ -248,7 +282,12 @@ class TournamentStore {
     const matches = generateInitialMatches(groups, teams, courts);
 
     this.state = {
-      settings: { ...DEFAULT_SETTINGS, version: this.state.settings.version + 1 },
+      settings: {
+        ...DEFAULT_SETTINGS,
+        adminPasswordHash: this.state.settings.adminPasswordHash,
+        scorekeeperPin: this.state.settings.scorekeeperPin,
+        version: this.state.settings.version + 1,
+      },
       groups,
       teams,
       courts,
