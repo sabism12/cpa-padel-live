@@ -1,5 +1,7 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
+import crypto from 'crypto';
+import os from 'os';
 import { createServer as createViteServer } from 'vite';
 import { tournamentStore } from './server/store';
 import { createSession, verifyToken, requireScorekeeper, requireAdmin } from './server/auth';
@@ -11,7 +13,19 @@ import {
   undoDraw,
   validatePairs,
 } from './server/drawLogic';
+import { createSyncRouter } from './server/syncRoutes';
+import { createRelayToken, isRelayConfigured, requireRelay } from './server/relayAuth';
+import { gatewayRelay } from './server/gateway';
 import { Match, Group, Team, Court } from './src/types';
+
+/** Hostname-only view of a URL, safe to return in diagnostics. */
+function safeHost(url: string): string | null {
+  try {
+    return new URL(url).host || null;
+  } catch {
+    return null;
+  }
+}
 
 async function startServer() {
   // Do not accept requests until the file/Supabase state is fully loaded.
@@ -79,6 +93,77 @@ async function startServer() {
   // Lightweight Render health check. Deliberately reports no secrets or state.
   app.get('/health', (_req: Request, res: Response) => {
     res.status(200).json({ status: 'ok' });
+  });
+
+  // ----------------------------------------------------
+  // SCORE SYNCHRONIZATION (additive, event-sourced)
+  // ----------------------------------------------------
+
+  // Gateway mode is opted into explicitly on the Dell. Render always runs as
+  // the authoritative 'server'.
+  const gatewayMode = process.env.GATEWAY_MODE === 'on' ? 'gateway' : 'server';
+  if (gatewayMode === 'gateway') {
+    gatewayRelay.start();
+  }
+
+  // Gateway diagnostics: secret-free status only, and never exposed publicly.
+  if (gatewayMode === 'gateway') {
+    app.get('/api/gateway/status', (_req: Request, res: Response) => {
+      const status = gatewayRelay.getStatus();
+      res.json({
+        enabled: status.enabled,
+        upstreamConfigured: Boolean(status.upstreamUrl),
+        // Hostname only — never include the full URL with any embedded creds.
+        upstreamHost: status.upstreamUrl ? safeHost(status.upstreamUrl) : null,
+        // null means "not checked yet", distinct from a real failure.
+        upstreamReachable: status.upstreamReachable,
+        relayTokenValid: status.relayTokenValid,
+        pendingUpstream: status.pendingUpstream,
+        lastUpstreamError: status.lastUpstreamError,
+        lastUpstreamAt: status.lastUpstreamAt,
+        lastHandshakeAttemptAt: status.lastHandshakeAttemptAt,
+      });
+    });
+
+    // LAN URLs the Dell is reachable on, so the gateway screen can show a QR
+    // code / clickable link for scorekeeper phones. Contains no secrets.
+    app.get('/api/gateway/info', (_req: Request, res: Response) => {
+      const nets = os.networkInterfaces();
+      const urls: string[] = [];
+      for (const addresses of Object.values(nets)) {
+        for (const address of addresses || []) {
+          if (address.family === 'IPv4' && !address.internal) {
+            urls.push(`http://${address.address}:${PORT}`);
+          }
+        }
+      }
+      res.json({ port: PORT, urls, name: process.env.GATEWAY_NAME || 'Dell Gateway' });
+    });
+  }
+
+  app.use('/api/sync', createSyncRouter(gatewayMode));
+
+  // Relay credential bootstrap. This is the ONE place a new relay token is
+  // issued, and it is deliberately NOT reachable from a browser or the
+  // scorekeeper UI. It requires a machine-only shared bootstrap secret
+  // (GATEWAY_BOOTSTRAP_SECRET) that is never embedded in frontend code.
+  app.post('/api/gateway/relay-token', (req: Request, res: Response) => {
+    const bootstrap = process.env.GATEWAY_BOOTSTRAP_SECRET;
+    if (!bootstrap || bootstrap.length < 32 || !isRelayConfigured()) {
+      res.status(404).json({ error: 'Gateway relay bootstrap is not enabled.' });
+      return;
+    }
+
+    const headerSecret = req.get('x-gateway-bootstrap') || '';
+    const a = Buffer.from(headerSecret);
+    const b = Buffer.from(bootstrap);
+    const ok = a.length === b.length && crypto.timingSafeEqual(a, b);
+    if (!ok) {
+      res.status(401).json({ error: 'Invalid gateway bootstrap credential.' });
+      return;
+    }
+
+    res.json({ token: createRelayToken(), expiresInSeconds: 12 * 60 * 60 });
   });
 
   // ----------------------------------------------------
@@ -430,6 +515,17 @@ async function startServer() {
   // ADMIN DASHBOARD ENDPOINTS (Protected: Admin Only)
   // ----------------------------------------------------
 
+  // The Dell gateway is a low-privilege relay. It must never expose admin
+  // surfaces to scorekeeper phones on the LAN, even if an admin logs in.
+  if (gatewayMode === 'gateway') {
+    app.use('/api/admin', (_req: Request, res: Response) => {
+      res.status(404).json({ error: 'Not available on the local gateway.' });
+    });
+    app.use('/api/knockout', (_req: Request, res: Response) => {
+      res.status(404).json({ error: 'Not available on the local gateway.' });
+    });
+  }
+
   // Auto-generate round-robin group matches
   app.post('/api/admin/matches/generate', requireAdmin, (req: Request, res: Response) => {
     const matches = tournamentStore.autoGenerateGroupMatches();
@@ -660,8 +756,15 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`CPA Padel Tournament Server running on http://0.0.0.0:${PORT}`);
+  const listenHost = process.env.BIND_HOST || '0.0.0.0';
+  app.listen(PORT, listenHost, () => {
+    console.log(`CPA Padel Tournament Server running on http://${listenHost}:${PORT}`);
+    if (gatewayMode === 'gateway') {
+      console.log(
+        `[gateway] Local relay mode active. Upstream: ${gatewayRelay.upstreamUrl ? safeHost(gatewayRelay.upstreamUrl) : '(not configured)'}`
+      );
+      console.log('[gateway] Scorekeeper phones should open this machine\'s LAN IP, e.g. http://192.168.137.1:' + PORT);
+    }
   });
 }
 

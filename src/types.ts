@@ -52,6 +52,31 @@ export interface Match {
   notes?: string;
   padelState?: PadelMatchState;
   scoreSummary?: string;
+  /** Authoritative scoring event log (append-only, idempotent by eventId). */
+  seqLog?: MatchEventRecord[];
+  /** Per-match version, bumped on every applied score event. */
+  matchVersion?: number;
+}
+
+/**
+ * One applied score event stored on the match. Kept intentionally small:
+ * a full tournament is a few hundred of these.
+ */
+export interface MatchEventRecord {
+  eventId: string;
+  seq: number;
+  type: string;
+  courtId?: string | null;
+  scorekeeper?: string;
+  clientTs?: string;
+  serverTs: string;
+  /** Origin of the event: a phone (direct) or a gateway relay. */
+  source?: 'client' | 'gateway';
+  payload?: {
+    team1Games?: number;
+    team2Games?: number;
+    scoreSummary?: string;
+  };
 }
 
 export interface StandingsRow {

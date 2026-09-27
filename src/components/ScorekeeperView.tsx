@@ -3,6 +3,10 @@ import { Court, AuthSession } from '../types';
 import { EnrichedMatch, submitScoreResult, setMatchLiveScore } from '../api';
 import { pairLabel } from '../utils/teamDisplay';
 import { stageLabel, isKnockoutMatch } from '../utils/matchStage';
+import { useSyncQueue } from '../scorekeeper/useSyncQueue';
+import { SyncStatusBar } from '../scorekeeper/SyncStatusBar';
+import { GatewayInfoPanel } from '../scorekeeper/GatewayInfoPanel';
+import { ScoreEventType } from '../scoring/eventTypes';
 import {
   PadelMatchState,
   ScoringActionHistoryItem,
@@ -74,8 +78,22 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
   const [showResetConfirm, setShowResetConfirm] = useState<boolean>(false);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'saving' | 'error'>('synced');
 
+  // Authoritative, offline-safe event pipeline. Events are written to IndexedDB
+  // before transmission and retried automatically; the server derives the score.
+  const sync = useSyncQueue(session?.token ?? null);
+
   // Debounce ref for live score broadcasting
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  /**
+   * Emit a score event to the authoritative server. The eventId is generated
+   * here (once) and persisted by the queue before any network attempt, so
+   * retries, refresh, and multi-path delivery can never double-apply.
+   * (Declared after currentMatch/currentCourt below.)
+   */
+  const emitScoreEventRef = useRef<
+    (type: ScoreEventType, payload?: { team1Games?: number; team2Games?: number; scoreSummary?: string }) => void
+  >(() => undefined);
 
   useEffect(() => {
     if (initialCourtId) {
@@ -109,6 +127,38 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
   const nextMatchInQueue = currentMatch
     ? activeCourtMatches.find((m) => m.id !== currentMatch.id) || null
     : null;
+
+  /**
+   * Emit a score event to the authoritative server. The eventId is generated
+   * once here and persisted by the queue before any network attempt, so
+   * retries, refresh, and multi-path delivery can never double-apply a point.
+   */
+  const emitScoreEvent = useCallback(
+    (type: ScoreEventType, payload?: { team1Games?: number; team2Games?: number; scoreSummary?: string }) => {
+      if (!currentMatch) return;
+      const event = {
+        eventId:
+          (crypto as any)?.randomUUID?.() ??
+          `evt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+        matchId: currentMatch.id,
+        courtId: currentCourt?.id ?? null,
+        scorekeeper: session?.name || 'Scorekeeper',
+        type,
+        ...(payload ? { payload } : {}),
+        clientTs: new Date().toISOString(),
+      };
+      setSyncStatus('saving');
+      void sync
+        .queue(event)
+        .then(() => setSyncStatus('synced'))
+        .catch((err) => {
+          setSyncStatus('error');
+          setErrorMessage(err?.message || 'Failed to queue score event');
+        });
+    },
+    [currentMatch, currentCourt?.id, session?.name, sync]
+  );
+  emitScoreEventRef.current = emitScoreEvent;
 
   // Initialize or load padel match state
   useEffect(() => {
@@ -168,7 +218,9 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
     }
   }, [padelState, currentMatch?.id]);
 
-  // Function to broadcast live status/score to server
+  // Function to broadcast live status/score to server.
+  // Retained for match setup/reassignment only; point-by-point scoring now goes
+  // through the authoritative, offline-safe event queue (see emitScoreEvent).
   const broadcastLiveScore = useCallback(
     (stateToBroadcast: PadelMatchState, status: 'live' | 'ready' | 'scheduled' | 'completed') => {
       const activeToken = session?.token;
@@ -257,17 +309,14 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
   const team1Name = pairLabel(currentMatch?.team1, 'TEAM ALPHA');
   const team2Name = pairLabel(currentMatch?.team2, 'TEAM BRAVO');
 
-  // Handle Point Recorded
+  // Handle Point Recorded — local UI updates immediately, server is authority.
   const handleScorePoint = (team: 'team1' | 'team2') => {
     if (!padelState || !currentMatch || padelState.isMatchOver) return;
 
     setErrorMessage(null);
     const newState = recordPoint(padelState, team, team1Name, team2Name);
     setPadelState(newState);
-
-    // CRITICAL: Always keep status as 'live' while scoring
-    // Never auto-broadcast as 'completed' here, which would evict the match and make the confirmation window disappear!
-    broadcastLiveScore(newState, 'live');
+    emitScoreEvent(team === 'team1' ? 'POINT_TEAM_1' : 'POINT_TEAM_2');
   };
 
   // Handle Undo Last Point
@@ -276,9 +325,7 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
 
     const reverted = undoLastPoint(padelState);
     setPadelState(reverted);
-
-    // Broadcast reverted state as 'live'
-    broadcastLiveScore(reverted, 'live');
+    emitScoreEvent('UNDO');
   };
 
   // Handle Reset Match
@@ -287,10 +334,10 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
     const fresh = createInitialMatchState(currentMatch.id);
     setPadelState(fresh);
     setShowResetConfirm(false);
-    broadcastLiveScore(fresh, 'ready');
+    emitScoreEvent('RESET');
   };
 
-  // Handle Final Match Submission
+  // Handle Final Match Submission — authoritative event path with legacy fallback.
   const handleSubmitFinalResult = async () => {
     if (!currentMatch || !padelState) return;
 
@@ -310,14 +357,24 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
 
     try {
       const summary = formatMatchScoreSummary(padelState);
-      await submitScoreResult(
-        activeToken,
-        currentMatch.id,
-        padelState.team1Games,
-        padelState.team2Games,
-        padelState,
-        summary
-      );
+
+      // Queue the MATCH_FINAL event (durable, idempotent). The server applies
+      // knockout advancement exactly once.
+      await sync.queue({
+        eventId:
+          (crypto as any)?.randomUUID?.() ??
+          `evt-final-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+        matchId: currentMatch.id,
+        courtId: currentCourt?.id ?? null,
+        scorekeeper: session?.name || 'Scorekeeper',
+        type: 'MATCH_FINAL',
+        payload: {
+          team1Games: padelState.team1Games,
+          team2Games: padelState.team2Games,
+          scoreSummary: summary,
+        },
+        clientTs: new Date().toISOString(),
+      });
 
       // Lock current match ID so screen remains stable after submission
       setSelectedMatchId(currentMatch.id);
@@ -332,6 +389,7 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
         } (${summary})`
       );
 
+      void sync.flush();
       onRefreshData();
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to submit match result.');
@@ -343,7 +401,7 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
   // Mark match live without scoring a point yet
   const handleStartMatch = () => {
     if (!padelState || !currentMatch) return;
-    broadcastLiveScore(padelState, 'live');
+    emitScoreEvent('MATCH_START');
     onRefreshData();
   };
 
@@ -475,6 +533,23 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Gateway LAN URL + QR (only rendered when served from the Dell gateway) */}
+      <GatewayInfoPanel />
+
+      {/* Connection + offline queue status (Local Dell / Direct Internet / Offline) */}
+      {sync.pending > 0 || sync.mode !== 'online-direct' ? (
+        <SyncStatusBar
+          mode={sync.mode}
+          targetLabel={sync.targetLabel}
+          pending={sync.pending}
+          syncing={sync.syncing}
+          lastError={sync.lastError}
+          gatewayUrl={sync.gatewayUrl}
+          onSetGatewayUrl={sync.setGatewayUrl}
+          onFlush={() => void sync.flush()}
+        />
+      ) : null}
 
       {/* Court Selection Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">

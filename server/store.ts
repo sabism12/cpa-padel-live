@@ -3,6 +3,11 @@ import { DrawStateRecord } from '../src/draw/types';
 import { createInitialDraw, pairsFromTeams } from './drawLogic';
 import { createStatePersistence, StatePersistence } from './statePersistence';
 import {
+  ApplyEventOptions,
+  applyScoreEventBatch,
+} from './scoringAuthority';
+import { ScoreEvent, ScoreEventResult } from '../src/scoring/eventTypes';
+import {
   DEFAULT_SETTINGS,
   INITIAL_GROUPS,
   INITIAL_COURTS,
@@ -302,6 +307,73 @@ class TournamentStore {
 
   public getState() {
     return this.state;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Authoritative scoring (event-sourced)                             */
+  /* ---------------------------------------------------------------- */
+
+  /** All matches as a lookup map, for batch event application. */
+  public getMatchMap(): Map<string, Match> {
+    return new Map(this.state.matches.map((m) => [m.id, m]));
+  }
+
+  /**
+   * Apply an already-validated batch of score events to the matches they target.
+   * The caller must then call commitScoreChanges() to persist + broadcast.
+   */
+  public applyScoreEvents(
+    events: ScoreEvent[],
+    options: ApplyEventOptions = {}
+  ): {
+    results: ScoreEventResult[];
+    changedMatchIds: string[];
+    finalisedMatchIds: string[];
+  } {
+    const { results, changedMatches, finalisedMatches } = applyScoreEventBatch(
+      this.getMatchMap(),
+      events,
+      options
+    );
+    return {
+      results,
+      changedMatchIds: changedMatches.map((m) => m.id),
+      finalisedMatchIds: finalisedMatches.map((m) => m.id),
+    };
+  }
+
+  /**
+   * Apply knockout advancement for a match finalised through the event path.
+   * Reuses the exact same advancement rules as submitScore().
+   */
+  public advanceKnockoutForMatch(matchId: string): void {
+    const match = this.state.matches.find((m) => m.id === matchId);
+    if (!match || match.stage !== 'knockout') return;
+    if (match.team1Score === null || match.team2Score === null) return;
+
+    const winnerId = match.team1Score > match.team2Score ? match.team1Id : match.team2Id;
+    const loserId = match.team1Score > match.team2Score ? match.team2Id : match.team1Id;
+
+    if (match.nextMatchId && match.nextMatchSlot) {
+      const nextMatch = this.state.matches.find((m) => m.id === match.nextMatchId);
+      if (nextMatch) {
+        if (match.nextMatchSlot === 'team1') nextMatch.team1Id = winnerId;
+        else if (match.nextMatchSlot === 'team2') nextMatch.team2Id = winnerId;
+      }
+    }
+
+    if (match.loserNextMatchId && match.loserNextMatchSlot) {
+      const loserNextMatch = this.state.matches.find((m) => m.id === match.loserNextMatchId);
+      if (loserNextMatch) {
+        if (match.loserNextMatchSlot === 'team1') loserNextMatch.team1Id = loserId;
+        else if (match.loserNextMatchSlot === 'team2') loserNextMatch.team2Id = loserId;
+      }
+    }
+  }
+
+  /** Persist and broadcast after one or more score events changed matches. */
+  public commitScoreChanges(): void {
+    this.notifyUpdates();
   }
 
   /* ---------------------------------------------------------------- */

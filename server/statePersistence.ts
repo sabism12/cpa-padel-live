@@ -190,8 +190,14 @@ class SupabaseStatePersistence<T> implements StatePersistence<T> {
 }
 
 export function createStatePersistence<T>(): StatePersistence<T> {
-  const driver = process.env.TOURNAMENT_STORAGE ||
-    (process.env.NODE_ENV === 'production' ? 'supabase' : 'file');
+  // The Dell gateway is a low-privilege local relay: it must never require or
+  // initialize Supabase, and it works purely from the local state file.
+  const isGateway = process.env.GATEWAY_MODE === 'on';
+
+  const explicitDriver = process.env.TOURNAMENT_STORAGE?.trim();
+  const driver = isGateway
+    ? (explicitDriver === 'supabase' ? 'supabase' : 'file')
+    : explicitDriver || (process.env.NODE_ENV === 'production' ? 'supabase' : 'file');
 
   if (driver === 'file') return new JsonFileStatePersistence<T>();
   if (driver === 'supabase') {
