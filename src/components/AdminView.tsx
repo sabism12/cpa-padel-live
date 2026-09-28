@@ -8,6 +8,7 @@ import {
   Download,
   Upload,
   QrCode,
+  RotateCcw,
   Plus,
   Trash2,
   Edit2,
@@ -33,6 +34,7 @@ import {
   adminSaveSettings,
   adminExportData,
   adminImportData,
+  resetAllScores,
 } from '../api';
 
 interface AdminViewProps {
@@ -63,6 +65,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
   >('matches');
 
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Reset all game scores (test before the match / start clean)
+  const [showResetAllConfirm, setShowResetAllConfirm] = useState(false);
+  const [resettingAll, setResettingAll] = useState(false);
 
   // Teams editing state
   const [editingTeam, setEditingTeam] = useState<Partial<Team> | null>(null);
@@ -145,7 +151,38 @@ export const AdminView: React.FC<AdminViewProps> = ({
     );
   }
 
-  // 11. Auto-generate Round Robin Group Matches
+  // 11. Reset ALL game scores back to 0-0 (and empty the knockout bracket).
+  // Useful to dry-run the scoring flow before the match and start clean.
+  const handleResetAllScores = async () => {
+    setResettingAll(true);
+    try {
+      const { matchesReset, knockoutReset } = await resetAllScores(session.token);
+
+      // Drop every cached per-match score so nothing stale is reloaded.
+      try {
+        for (const m of matches) {
+          localStorage.removeItem(`cpa_padel_match_${m.id}`);
+        }
+      } catch {
+        // ignore storage errors
+      }
+
+      setShowResetAllConfirm(false);
+      showNotification(
+        'success',
+        `All scores reset to 0-0 (${matchesReset} match${matchesReset === 1 ? '' : 'es'} cleared)${
+          knockoutReset > 0
+            ? `, knockout bracket cleared to TBD (${knockoutReset})`
+            : ''
+        }. Court times unchanged.`
+      );
+      onRefreshData();
+    } catch (err: any) {
+      showNotification('error', err?.message || 'Failed to reset all scores.');
+    } finally {
+      setResettingAll(false);
+    }
+  };
 
   // Team Save / Delete
   const handleSaveTeam = async (e: React.FormEvent) => {
@@ -379,7 +416,59 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </p>
           </div>
         </div>
+
+        {/* Global Action Quick Buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            id="btn-admin-reset-all-scores"
+            onClick={() => {
+              setShowResetAllConfirm(true);
+              setFeedbackMessage(null);
+            }}
+            disabled={resettingAll}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Reset every match score to 0-0 and clear the knockout bracket back to TBD"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>Reset All Scores</span>
+          </button>
+        </div>
       </div>
+
+      {/* Reset All Scores Confirmation */}
+      {showResetAllConfirm && (
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/40 text-rose-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5 sm:mt-0" />
+            <span>
+              Reset the scores of <strong>ALL matches</strong> back to 0-0? Every completed and
+              in-progress game will be cleared and the spectator boards will update immediately.
+              The knockout bracket will also be cleared back to TBD. Court times and courts stay
+              unchanged. This cannot be undone.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              type="button"
+              id="btn-admin-confirm-reset-all-scores"
+              onClick={handleResetAllScores}
+              disabled={resettingAll}
+              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              {resettingAll ? 'Resetting…' : 'Yes, Reset All'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowResetAllConfirm(false)}
+              disabled={resettingAll}
+              className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Feedback Alert */}
       {feedbackMessage && (
