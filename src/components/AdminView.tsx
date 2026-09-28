@@ -8,14 +8,12 @@ import {
   Download,
   Upload,
   QrCode,
-  RotateCcw,
   Plus,
   Trash2,
   Edit2,
   CheckCircle2,
   AlertCircle,
   Clock,
-  Sparkles,
   Share2,
   Copy,
   ExternalLink,
@@ -31,10 +29,8 @@ import {
   adminDeleteTeam,
   adminSaveCourts,
   adminSaveGroups,
-  adminGenerateMatches,
   adminUpdateMatch,
   adminSaveSettings,
-  adminResetDemo,
   adminExportData,
   adminImportData,
 } from '../api';
@@ -67,7 +63,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
   >('matches');
 
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [loading, setLoading] = useState(false);
 
   // Teams editing state
   const [editingTeam, setEditingTeam] = useState<Partial<Team> | null>(null);
@@ -151,48 +146,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
   }
 
   // 11. Auto-generate Round Robin Group Matches
-  const handleAutoGenerateMatches = async () => {
-    if (
-      !window.confirm(
-        'Generate all 30 round-robin group stage matches? Existing unsaved match structures will be replaced.'
-      )
-    ) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await adminGenerateMatches(session.token);
-      showNotification('success', `Successfully generated ${res.count} round-robin matches!`);
-      onRefreshData();
-    } catch (err: any) {
-      showNotification('error', err.message || 'Failed to generate matches.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 26. Reset to Demo Data
-  const handleResetDemoData = async () => {
-    if (
-      !window.confirm(
-        'Reset tournament to full 20-team realistic demo data with 5 groups and completed/live sample matches?'
-      )
-    ) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await adminResetDemo(session.token);
-      showNotification('success', 'Tournament reset to demo state with 20 teams and 30 matches.');
-      onRefreshData();
-    } catch (err: any) {
-      showNotification('error', err.message || 'Failed to reset demo.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Team Save / Delete
   const handleSaveTeam = async (e: React.FormEvent) => {
@@ -425,31 +378,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
               Manage teams &bull; Schedule fixtures &bull; Score corrections &bull; Google Sheets
             </p>
           </div>
-        </div>
-
-        {/* Global Action Quick Buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            id="btn-admin-auto-generate"
-            onClick={handleAutoGenerateMatches}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-lime-400 hover:bg-lime-300 text-slate-950 shadow-md shadow-lime-500/20 transition-all"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>Generate 30 Matches</span>
-          </button>
-
-          <button
-            type="button"
-            id="btn-admin-reset-demo"
-            onClick={handleResetDemoData}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset Demo</span>
-          </button>
         </div>
       </div>
 

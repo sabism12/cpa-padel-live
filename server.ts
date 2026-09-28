@@ -511,6 +511,13 @@ async function startServer() {
     res.json({ success: true, match: updated });
   });
 
+  // Reset the score of every match back to 0-0 / scheduled. The store bump
+  // broadcasts over SSE so the public spectator screens refresh immediately.
+  app.post('/api/scorekeeper/reset-all-scores', requireScorekeeper, (_req: Request, res: Response) => {
+    const { matchesReset, knockoutReset } = tournamentStore.resetAllMatchScores();
+    res.json({ success: true, matchesReset, knockoutReset });
+  });
+
   // ----------------------------------------------------
   // ADMIN DASHBOARD ENDPOINTS (Protected: Admin Only)
   // ----------------------------------------------------
@@ -525,12 +532,6 @@ async function startServer() {
       res.status(404).json({ error: 'Not available on the local gateway.' });
     });
   }
-
-  // Auto-generate round-robin group matches
-  app.post('/api/admin/matches/generate', requireAdmin, (req: Request, res: Response) => {
-    const matches = tournamentStore.autoGenerateGroupMatches();
-    res.json({ success: true, matches, count: matches.length });
-  });
 
   // Update Match details / score / court
   app.post('/api/admin/match', requireAdmin, (req: Request, res: Response) => {
@@ -613,13 +614,6 @@ async function startServer() {
     const updated = tournamentStore.updateSettings(updates);
     const { adminPasswordHash: _adminPassword, scorekeeperPin: _scorekeeperPin, ...safeSettings } = updated;
     res.json({ success: true, settings: safeSettings });
-  });
-
-  // Reset to Demo Data
-  app.post('/api/admin/reset-demo', requireAdmin, (req: Request, res: Response) => {
-    const state = tournamentStore.resetToDemo();
-    const { adminPasswordHash: _adminPassword, scorekeeperPin: _scorekeeperPin, ...safeSettings } = state.settings;
-    res.json({ success: true, state: { ...state, settings: safeSettings } });
   });
 
   // Export all tournament data (JSON & CSV compatible)

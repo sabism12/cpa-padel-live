@@ -34,8 +34,39 @@ interface TournamentState {
  * v3: tournament roster replaced with the official player pairings.
  * v4: 8-team knockout - 5 group winners + 3 wildcard runners-up.
  * v5: group stage scores 3 points for a win and 0 for a loss.
+ * v6: the destructive "Reset Demo" was removed. Saves still carrying the old
+ *     sample roster are rebuilt with the official roster and fixture list.
  */
-const FORMAT_VERSION = 5;
+const FORMAT_VERSION = 6;
+
+/**
+ * v6 migration: the admin "Reset Demo" button used to overwrite the tournament
+ * with a stale sample roster. Any save that still holds that sample roster
+ * (detected by team-a2, which the old sample called "Abdullah Othman" and the
+ * official roster calls "Hadi") is rebuilt from the official seed data: the
+ * real 20 pairings, the official 30-match fixture list, an emptied knockout
+ * bracket and a fresh draw.
+ *
+ * Saves that already hold the official roster are left completely untouched,
+ * so real live scores on the correct schedule are never discarded.
+ */
+function applyOfficialScheduleV6(state: any): boolean {
+  if (!Array.isArray(state.teams)) return false;
+
+  const legacyA2 = state.teams.find((t: Team) => t.id === 'team-a2');
+  if (!legacyA2 || legacyA2.player1 !== 'Abdullah Othman') return false;
+
+  const groups = [...INITIAL_GROUPS];
+  const courts =
+    Array.isArray(state.courts) && state.courts.length > 0 ? state.courts : [...INITIAL_COURTS];
+  const teams = [...INITIAL_TEAMS];
+
+  state.groups = groups;
+  state.teams = teams;
+  state.matches = generateInitialMatches(groups, teams, courts);
+  state.draw = createInitialDraw(pairsFromTeams(teams));
+  return true;
+}
 
 /** Shared standings ordering: points -> game diff -> games won -> pairing. */
 function compareStandingsRows(a: StandingsRow, b: StandingsRow): number {
@@ -191,6 +222,8 @@ class TournamentStore {
 
     const fromVersion: number = state.formatVersion ?? 1;
     if (fromVersion < FORMAT_VERSION) {
+      // v6 first: it inspects the raw roster, which older migrations rewrite.
+      if (fromVersion < 6) applyOfficialScheduleV6(state);
       if (fromVersion < 2) applyGroupCourtDedication(state);
       if (fromVersion < 3) applyRosterV3(state);
       if (fromVersion < 4) applyQualificationFormatV4(state);
@@ -278,31 +311,6 @@ class TournamentStore {
     return () => {
       this.sseClients.delete(client);
     };
-  }
-
-  public resetToDemo(): TournamentState {
-    const groups = [...INITIAL_GROUPS];
-    const courts = [...INITIAL_COURTS];
-    const teams = [...INITIAL_TEAMS];
-    const matches = generateInitialMatches(groups, teams, courts);
-
-    this.state = {
-      settings: {
-        ...DEFAULT_SETTINGS,
-        adminPasswordHash: this.state.settings.adminPasswordHash,
-        scorekeeperPin: this.state.settings.scorekeeperPin,
-        version: this.state.settings.version + 1,
-      },
-      groups,
-      teams,
-      courts,
-      matches,
-      lastUpdated: new Date().toISOString(),
-      formatVersion: FORMAT_VERSION,
-      draw: createInitialDraw(pairsFromTeams(teams)),
-    };
-    this.notifyUpdates();
-    return this.state;
   }
 
   public getState() {
@@ -480,47 +488,6 @@ class TournamentStore {
     return this.state.matches[idx];
   }
 
-  public autoGenerateGroupMatches(): Match[] {
-    const newMatches: Match[] = [];
-    let matchCounter = 1;
-    const courts = this.state.courts.filter((c) => c.active);
-
-    const timeSlots = ['09:00', '09:45', '10:30', '11:15', '12:00', '12:45', '13:30', '14:15'];
-
-    this.state.groups.forEach((group, gIdx) => {
-      const gTeams = this.state.teams.filter((t) => t.groupId === group.id);
-      const n = gTeams.length;
-
-      // Full Round Robin without duplicates
-      let matchInGroup = 1;
-      for (let i = 0; i < n; i++) {
-        for (let j = i + 1; j < n; j++) {
-          const court = courts.length > 0 ? courts[gIdx % courts.length] : null;
-          const time = timeSlots[(matchInGroup - 1) % timeSlots.length] || '14:00';
-
-          newMatches.push({
-            id: `match-${group.id}-${matchInGroup}`,
-            tournamentId: this.state.settings.id,
-            groupId: group.id,
-            matchNumber: matchCounter++,
-            team1Id: gTeams[i].id,
-            team2Id: gTeams[j].id,
-            courtId: court ? court.id : null,
-            scheduledTime: time,
-            status: 'scheduled',
-            team1Score: null,
-            team2Score: null,
-          });
-          matchInGroup++;
-        }
-      }
-    });
-
-    this.state.matches = newMatches;
-    this.notifyUpdates();
-    return this.state.matches;
-  }
-
   public submitScore(params: {
     matchId: string;
     team1Score: number;
@@ -608,6 +575,51 @@ class TournamentStore {
 
     this.notifyUpdates();
     return { success: true, match, nextMatch };
+  }
+
+  /**
+   * Clear the score/state of every non-cancelled match and return it to the
+   * scheduled pre-play state. Used by the scorekeeper's "Reset All Games"
+   * action. Broadcasts a version bump so spectator screens refresh instantly.
+   *
+   * SCOPE — the schedule is left exactly as-is: court assignment (`courtId`),
+   * start time (`scheduledTime`), match order/number, stage/round and bracket
+   * position are all preserved. Only the recorded result is cleared
+   * (`team1Score`/`team2Score`/`padelState`/`scoreSummary`/completion metadata),
+   * the event log is emptied, and the match is returned to `scheduled`.
+   *
+   * Knockout matches additionally have their team slots cleared, so the bracket
+   * shows TBD again ready to be re-seeded from the (now empty) group standings.
+   */
+  public resetAllMatchScores(): { matchesReset: number; knockoutReset: number } {
+    let matchesReset = 0;
+    let knockoutReset = 0;
+    for (const match of this.state.matches) {
+      if (match.status === 'cancelled') continue;
+
+      match.team1Score = null;
+      match.team2Score = null;
+      delete match.padelState;
+      delete match.scoreSummary;
+      delete match.completedAt;
+      delete match.submittedBy;
+      delete match.seqLog;
+      match.matchVersion = 0;
+      match.status = 'scheduled';
+
+      // Knockout bracket: drop advanced teams so every slot shows TBD again.
+      // The match itself (court, time, order, round) stays on the schedule.
+      if (match.stage === 'knockout' || match.groupId === 'knockout') {
+        match.team1Id = '';
+        match.team2Id = '';
+        knockoutReset++;
+      }
+
+      matchesReset++;
+    }
+
+    this.notifyUpdates();
+    return { matchesReset, knockoutReset };
   }
 
   public calculateStandings(): Record<string, StandingsRow[]> {

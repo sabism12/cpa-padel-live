@@ -30,7 +30,18 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,svg,png,jpg,woff,woff2,ttf,otf,eot}'],
+          // Precache ONLY the assets the app actually loads, in the smallest
+          // formats. woff2 only: every browser that runs this app supports it,
+          // so the duplicate .woff copies (another ~2 MB) are not precached —
+          // they stay in the build and are still served if ever requested.
+          // Raw .ttf/.otf/.eot font sources and the large decorative JPEG are
+          // excluded entirely: they added ~6 MB to first load and no modern
+          // browser needs them. The JPEG is fetched on demand via the
+          // StaleWhileRevalidate rule below.
+          globPatterns: [
+            '**/*.{js,css,html,svg,json}',
+            'fonts/**/*.woff2',
+          ],
           // Never let a service worker intercept API traffic.
           navigateFallbackDenylist: [/^\/api\//, /^\/draw\/admin/],
           runtimeCaching: [
@@ -39,9 +50,18 @@ export default defineConfig(() => {
               urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
               handler: 'NetworkOnly',
             },
+            {
+              // Large optional images: serve from cache when offline, but do
+              // not block first load downloading them.
+              urlPattern: /\.(?:jpg|jpeg|png)$/,
+              handler: 'StaleWhileRevalidate',
+              options: { cacheName: 'cpa-images' },
+            },
           ],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
+          // Do not precache the server bundle or its source map.
+          globIgnores: ['server.cjs', 'server.cjs.map'],
         },
       }),
     ],

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Court, AuthSession } from '../types';
-import { EnrichedMatch, submitScoreResult, setMatchLiveScore } from '../api';
+import { EnrichedMatch, submitScoreResult, setMatchLiveScore, resetAllScores } from '../api';
 import { pairLabel } from '../utils/teamDisplay';
 import { stageLabel, isKnockoutMatch } from '../utils/matchStage';
 import { useSyncQueue } from '../scorekeeper/useSyncQueue';
@@ -76,6 +76,8 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState<boolean>(false);
+  const [showResetAllConfirm, setShowResetAllConfirm] = useState<boolean>(false);
+  const [resettingAll, setResettingAll] = useState<boolean>(false);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'saving' | 'error'>('synced');
 
   // Authoritative, offline-safe event pipeline. Events are written to IndexedDB
@@ -337,6 +339,55 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
     emitScoreEvent('RESET');
   };
 
+  // Handle Reset ALL Games — server-authoritative so spectator boards update too.
+  const handleResetAllScores = async () => {
+    const activeToken = session?.token;
+    if (!activeToken) {
+      setErrorMessage('Authentication required: please sign in to reset scores.');
+      return;
+    }
+
+    setResettingAll(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const { matchesReset, knockoutReset } = await resetAllScores(activeToken);
+
+      // Drop every per-match local cache so a stale score cannot be reloaded.
+      try {
+        for (const m of matches) {
+          localStorage.removeItem(`cpa_padel_match_${m.id}`);
+        }
+      } catch {
+        // ignore storage errors
+      }
+
+      if (currentMatch) {
+        setPadelState(createInitialMatchState(currentMatch.id));
+      }
+
+      setShowResetAllConfirm(false);
+      setSuccessMessage(
+        `All game scores reset to 0-0 (${matchesReset} match${matchesReset === 1 ? '' : 'es'} cleared)${
+          knockoutReset > 0
+            ? `, knockout bracket reset to TBD (${knockoutReset} match${knockoutReset === 1 ? '' : 'es'})`
+            : ''
+        }. Spectator boards updated.`
+      );
+      onRefreshData();
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to reset all scores.';
+      if (msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('scorekeeper')) {
+        setErrorMessage('Scorekeeper PIN required: Please authenticate to reset scores.');
+      } else {
+        setErrorMessage(msg);
+      }
+    } finally {
+      setResettingAll(false);
+    }
+  };
+
   // Handle Final Match Submission — authoritative event path with legacy fallback.
   const handleSubmitFinalResult = async () => {
     if (!currentMatch || !padelState) return;
@@ -531,8 +582,54 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
               </button>
             )}
           </div>
+
+          <button
+            id="btn-reset-all-scores"
+            onClick={() => {
+              setShowResetAllConfirm(true);
+              setErrorMessage(null);
+              setSuccessMessage(null);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 text-xs font-bold shadow-sm transition-colors cursor-pointer whitespace-nowrap"
+            title="Reset every match score to 0-0 and clear the knockout bracket back to TBD"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset All Games</span>
+          </button>
         </div>
       </div>
+
+      {/* Global Reset All Games Confirmation */}
+      {showResetAllConfirm && (
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/40 text-rose-100 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+          <div className="flex items-start sm:items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5 sm:mt-0" />
+            <span>
+              Reset the scores of <strong>ALL matches</strong> back to 0-0? Every completed and
+              in-progress game will be cleared and the spectator boards will update immediately.
+              The knockout bracket will also be cleared back to TBD. Game times and courts stay
+              unchanged. This cannot be undone.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              id="btn-confirm-reset-all-scores"
+              onClick={handleResetAllScores}
+              disabled={resettingAll}
+              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              {resettingAll ? 'Resetting…' : 'Yes, Reset All'}
+            </button>
+            <button
+              onClick={() => setShowResetAllConfirm(false)}
+              disabled={resettingAll}
+              className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Gateway LAN URL + QR (only rendered when served from the Dell gateway) */}
       <GatewayInfoPanel />

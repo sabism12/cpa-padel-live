@@ -1,0 +1,398 @@
+{
+  "roster": [
+    {
+      "group": "A",
+      "player1": "Hamood",
+      "player2": "Hossam",
+      "name": "Hamood / Hossam"
+    },
+    {
+      "group": "A",
+      "player1": "Hadi",
+      "player2": "Shahir",
+      "name": "Hadi / Shahir"
+    },
+    {
+      "group": "A",
+      "player1": "Omer",
+      "player2": "Tariq",
+      "name": "Omer / Tariq"
+    },
+    {
+      "group": "A",
+      "player1": "Derrick",
+      "player2": "Elvis",
+      "name": "Derrick / Elvis"
+    },
+    {
+      "group": "B",
+      "player1": "Hashim",
+      "player2": "Muhsin",
+      "name": "Hashim / Muhsin"
+    },
+    {
+      "group": "B",
+      "player1": "Daud",
+      "player2": "Ahmed Elmasry",
+      "name": "Daud / Ahmed Elmasry"
+    },
+    {
+      "group": "B",
+      "player1": "Ansaf",
+      "player2": "Faham",
+      "name": "Ansaf / Faham"
+    },
+    {
+      "group": "B",
+      "player1": "Jamshi",
+      "player2": "Hisham",
+      "name": "Jamshi / Hisham"
+    },
+    {
+      "group": "C",
+      "player1": "Athif",
+      "player2": "Nadeer",
+      "name": "Athif / Nadeer"
+    },
+    {
+      "group": "C",
+      "player1": "Sudhin",
+      "player2": "Junais",
+      "name": "Sudhin / Junais"
+    },
+    {
+      "group": "C",
+      "player1": "Abdullah Othman",
+      "player2": "Akmal Rizvi",
+      "name": "Abdullah Othman / Akmal Rizvi"
+    },
+    {
+      "group": "C",
+      "player1": "Abdulaziz Al Yafei",
+      "player2": "Osman Al Amoodi",
+      "name": "Abdulaziz Al Yafei / Osman Al Amoodi"
+    },
+    {
+      "group": "D",
+      "player1": "Mohammed Jalil",
+      "player2": "Abdullah Mahmoud",
+      "name": "Mohammed Jalil / Abdullah Mahmoud"
+    },
+    {
+      "group": "D",
+      "player1": "Ameen",
+      "player2": "Aflah",
+      "name": "Ameen / Aflah"
+    },
+    {
+      "group": "D",
+      "player1": "Asim",
+      "player2": "Abhijit",
+      "name": "Asim / Abhijit"
+    },
+    {
+      "group": "D",
+      "player1": "Suhaim",
+      "player2": "Zubair",
+      "name": "Suhaim / Zubair"
+    },
+    {
+      "group": "E",
+      "player1": "Adil",
+      "player2": "Fawaz",
+      "name": "Adil / Fawaz"
+    },
+    {
+      "group": "E",
+      "player1": "Sabah",
+      "player2": "Hamdan",
+      "name": "Sabah / Hamdan"
+    },
+    {
+      "group": "E",
+      "player1": "Zameer",
+      "player2": "Moosa Faisal",
+      "name": "Zameer / Moosa Faisal"
+    },
+    {
+      "group": "E",
+      "player1": "Bilal",
+      "player2": "Ali",
+      "name": "Bilal / Ali"
+    }
+  ],
+  "matches": [
+    {
+      "group": "A",
+      "courtId": "court-1",
+      "courtName": "Court 1 – Group A",
+      "time": "8:00–8:30",
+      "team1": "Hamood / Hossam",
+      "team2": "Hadi / Shahir"
+    },
+    {
+      "group": "B",
+      "courtId": "court-2",
+      "courtName": "Court 2 – Group B",
+      "time": "8:00–8:30",
+      "team1": "Hashim / Muhsin",
+      "team2": "Daud / Ahmed Elmasry"
+    },
+    {
+      "group": "C",
+      "courtId": "court-3",
+      "courtName": "Court 3 – Group C",
+      "time": "8:00–8:30",
+      "team1": "Athif / Nadeer",
+      "team2": "Sudhin / Junais"
+    },
+    {
+      "group": "D",
+      "courtId": "court-4",
+      "courtName": "Court 4 – Group D",
+      "time": "8:00–8:30",
+      "team1": "Mohammed Jalil / Abdullah Mahmoud",
+      "team2": "Ameen / Aflah"
+    },
+    {
+      "group": "E",
+      "courtId": "court-5",
+      "courtName": "Court 5 – Group E",
+      "time": "8:00–8:30",
+      "team1": "Adil / Fawaz",
+      "team2": "Sabah / Hamdan"
+    },
+    {
+      "group": "A",
+      "courtId": "court-1",
+      "courtName": "Court 1 – Group A",
+      "time": "8:30–9:00",
+      "team1": "Omer / Tariq",
+      "team2": "Derrick / Elvis"
+    },
+    {
+      "group": "B",
+      "courtId": "court-2",
+      "courtName": "Court 2 – Group B",
+      "time": "8:30–9:00",
+      "team1": "Ansaf / Faham",
+      "team2": "Jamshi / Hisham"
+    },
+    {
+      "group": "C",
+      "courtId": "court-3",
+      "courtName": "Court 3 – Group C",
+      "time": "8:30–9:00",
+      "team1": "Abdullah Othman / Akmal Rizvi",
+      "team2": "Abdulaziz Al Yafei / Osman Al Amoodi"
+    },
+    {
+      "group": "D",
+      "courtId": "court-4",
+      "courtName": "Court 4 – Group D",
+      "time": "8:30–9:00",
+      "team1": "Asim / Abhijit",
+      "team2": "Suhaim / Zubair"
+    },
+    {
+      "group": "E",
+      "courtId": "court-5",
+      "courtName": "Court 5 – Group E",
+      "time": "8:30–9:00",
+      "team1": "Zameer / Moosa Faisal",
+      "team2": "Bilal / Ali"
+    },
+    {
+      "group": "A",
+      "courtId": "court-1",
+      "courtName": "Court 1 – Group A",
+      "time": "9:00–9:30",
+      "team1": "Hamood / Hossam",
+      "team2": "Omer / Tariq"
+    },
+    {
+      "group": "B",
+      "courtId": "court-2",
+      "courtName": "Court 2 – Group B",
+      "time": "9:00–9:30",
+      "team1": "Hashim / Muhsin",
+      "team2": "Ansaf / Faham"
+    },
+    {
+      "group": "C",
+      "courtId": "court-3",
+      "courtName": "Court 3 – Group C",
+      "time": "9:00–9:30",
+      "team1": "Athif / Nadeer",
+      "team2": "Abdullah Othman / Akmal Rizvi"
+    },
+    {
+      "group": "D",
+      "courtId": "court-4",
+      "courtName": "Court 4 – Group D",
+      "time": "9:00–9:30",
+      "team1": "Suhaim / Zubair",
+      "team2": "Ameen / Aflah"
+    },
+    {
+      "group": "E",
+      "courtId": "court-5",
+      "courtName": "Court 5 – Group E",
+      "time": "9:00–9:30",
+      "team1": "Adil / Fawaz",
+      "team2": "Zameer / Moosa Faisal"
+    },
+    {
+      "group": "A",
+      "courtId": "court-1",
+      "courtName": "Court 1 – Group A",
+      "time": "9:30–10:00",
+      "team1": "Hadi / Shahir",
+      "team2": "Derrick / Elvis"
+    },
+    {
+      "group": "B",
+      "courtId": "court-2",
+      "courtName": "Court 2 – Group B",
+      "time": "9:30–10:00",
+      "team1": "Daud / Ahmed Elmasry",
+      "team2": "Jamshi / Hisham"
+    },
+    {
+      "group": "C",
+      "courtId": "court-3",
+      "courtName": "Court 3 – Group C",
+      "time": "9:30–10:00",
+      "team1": "Sudhin / Junais",
+      "team2": "Abdulaziz Al Yafei / Osman Al Amoodi"
+    },
+    {
+      "group": "D",
+      "courtId": "court-4",
+      "courtName": "Court 4 – Group D",
+      "time": "9:30–10:00",
+      "team1": "Asim / Abhijit",
+      "team2": "Mohammed Jalil / Abdullah Mahmoud"
+    },
+    {
+      "group": "E",
+      "courtId": "court-5",
+      "courtName": "Court 5 – Group E",
+      "time": "9:30–10:00",
+      "team1": "Sabah / Hamdan",
+      "team2": "Bilal / Ali"
+    },
+    {
+      "group": "A",
+      "courtId": "court-1",
+      "courtName": "Court 1 – Group A",
+      "time": "10:00–10:30",
+      "team1": "Hamood / Hossam",
+      "team2": "Derrick / Elvis"
+    },
+    {
+      "group": "B",
+      "courtId": "court-2",
+      "courtName": "Court 2 – Group B",
+      "time": "10:00–10:30",
+      "team1": "Hashim / Muhsin",
+      "team2": "Jamshi / Hisham"
+    },
+    {
+      "group": "C",
+      "courtId": "court-3",
+      "courtName": "Court 3 – Group C",
+      "time": "10:00–10:30",
+      "team1": "Athif / Nadeer",
+      "team2": "Abdulaziz Al Yafei / Osman Al Amoodi"
+    },
+    {
+      "group": "D",
+      "courtId": "court-4",
+      "courtName": "Court 4 – Group D",
+      "time": "10:00–10:30",
+      "team1": "Asim / Abhijit",
+      "team2": "Ameen / Aflah"
+    },
+    {
+      "group": "E",
+      "courtId": "court-5",
+      "courtName": "Court 5 – Group E",
+      "time": "10:00–10:30",
+      "team1": "Adil / Fawaz",
+      "team2": "Bilal / Ali"
+    },
+    {
+      "group": "A",
+      "courtId": "court-1",
+      "courtName": "Court 1 – Group A",
+      "time": "10:30–11:00",
+      "team1": "Hadi / Shahir",
+      "team2": "Omer / Tariq"
+    },
+    {
+      "group": "B",
+      "courtId": "court-2",
+      "courtName": "Court 2 – Group B",
+      "time": "10:30–11:00",
+      "team1": "Daud / Ahmed Elmasry",
+      "team2": "Ansaf / Faham"
+    },
+    {
+      "group": "C",
+      "courtId": "court-3",
+      "courtName": "Court 3 – Group C",
+      "time": "10:30–11:00",
+      "team1": "Sudhin / Junais",
+      "team2": "Abdullah Othman / Akmal Rizvi"
+    },
+    {
+      "group": "D",
+      "courtId": "court-4",
+      "courtName": "Court 4 – Group D",
+      "time": "10:30–11:00",
+      "team1": "Suhaim / Zubair",
+      "team2": "Mohammed Jalil / Abdullah Mahmoud"
+    },
+    {
+      "group": "E",
+      "courtId": "court-5",
+      "courtName": "Court 5 – Group E",
+      "time": "10:30–11:00",
+      "team1": "Sabah / Hamdan",
+      "team2": "Zameer / Moosa Faisal"
+    }
+  ],
+  "groupPairs": {
+    "A": [
+      "Hamood / Hossam",
+      "Hadi / Shahir",
+      "Omer / Tariq",
+      "Derrick / Elvis"
+    ],
+    "B": [
+      "Hashim / Muhsin",
+      "Daud / Ahmed Elmasry",
+      "Ansaf / Faham",
+      "Jamshi / Hisham"
+    ],
+    "C": [
+      "Athif / Nadeer",
+      "Sudhin / Junais",
+      "Abdullah Othman / Akmal Rizvi",
+      "Abdulaziz Al Yafei / Osman Al Amoodi"
+    ],
+    "D": [
+      "Mohammed Jalil / Abdullah Mahmoud",
+      "Ameen / Aflah",
+      "Asim / Abhijit",
+      "Suhaim / Zubair"
+    ],
+    "E": [
+      "Adil / Fawaz",
+      "Sabah / Hamdan",
+      "Zameer / Moosa Faisal",
+      "Bilal / Ali"
+    ]
+  }
+}

@@ -33,88 +33,101 @@ export const INITIAL_COURTS: Court[] = [
   { id: 'court-5', name: 'Court 5 (West)', active: true, order: 5 },
 ];
 
+/**
+ * Official tournament roster (20 pairings across 5 groups). This is the single
+ * source of truth: the seed state, the "Reset all scores" action and the v6
+ * migration all derive from it. Never reorder ids - matches reference them.
+ */
 export const INITIAL_TEAMS: Team[] = [
   // Group A
   { id: 'team-a1', name: 'Hamood / Hossam', player1: 'Hamood', player2: 'Hossam', groupId: 'group-a' },
-  { id: 'team-a2', name: 'Abdullah Othman / Akmal Rizvi', player1: 'Abdullah Othman', player2: 'Akmal Rizvi', groupId: 'group-a' },
-  { id: 'team-a3', name: 'Faisal / Muhammed', player1: 'Faisal', player2: 'Muhammed', groupId: 'group-a' },
-  { id: 'team-a4', name: 'Mohammed Jalil / Abdullah Mahmoud', player1: 'Mohammed Jalil', player2: 'Abdullah Mahmoud', groupId: 'group-a' },
+  { id: 'team-a2', name: 'Hadi / Shahir', player1: 'Hadi', player2: 'Shahir', groupId: 'group-a' },
+  { id: 'team-a3', name: 'Omer / Tariq', player1: 'Omer', player2: 'Tariq', groupId: 'group-a' },
+  { id: 'team-a4', name: 'Derrick / Elvis', player1: 'Derrick', player2: 'Elvis', groupId: 'group-a' },
 
   // Group B
-  { id: 'team-b1', name: 'Derrick / Elvis', player1: 'Derrick', player2: 'Elvis', groupId: 'group-b' },
-  { id: 'team-b2', name: 'Suhaim / Zubair', player1: 'Suhaim', player2: 'Zubair', groupId: 'group-b' },
-  { id: 'team-b3', name: 'Zameer / Moosa Faisal', player1: 'Zameer', player2: 'Moosa Faisal', groupId: 'group-b' },
-  { id: 'team-b4', name: 'Abdulaziz Al Yafei / Osman Al Amoodi', player1: 'Abdulaziz Al Yafei', player2: 'Osman Al Amoodi', groupId: 'group-b' },
+  { id: 'team-b1', name: 'Hashim / Muhsin', player1: 'Hashim', player2: 'Muhsin', groupId: 'group-b' },
+  { id: 'team-b2', name: 'Daud / Ahmed Elmasry', player1: 'Daud', player2: 'Ahmed Elmasry', groupId: 'group-b' },
+  { id: 'team-b3', name: 'Ansaf / Faham', player1: 'Ansaf', player2: 'Faham', groupId: 'group-b' },
+  { id: 'team-b4', name: 'Jamshi / Hisham', player1: 'Jamshi', player2: 'Hisham', groupId: 'group-b' },
 
   // Group C
-  { id: 'team-c1', name: 'Jamshi / Hisham', player1: 'Jamshi', player2: 'Hisham', groupId: 'group-c' },
-  { id: 'team-c2', name: 'Hashim / Muhsin', player1: 'Hashim', player2: 'Muhsin', groupId: 'group-c' },
-  { id: 'team-c3', name: 'Sudhin / Junais', player1: 'Sudhin', player2: 'Junais', groupId: 'group-c' },
-  { id: 'team-c4', name: 'Sabah / Hamdan', player1: 'Sabah', player2: 'Hamdan', groupId: 'group-c' },
+  { id: 'team-c1', name: 'Athif / Nadeer', player1: 'Athif', player2: 'Nadeer', groupId: 'group-c' },
+  { id: 'team-c2', name: 'Sudhin / Junais', player1: 'Sudhin', player2: 'Junais', groupId: 'group-c' },
+  { id: 'team-c3', name: 'Abdullah Othman / Akmal Rizvi', player1: 'Abdullah Othman', player2: 'Akmal Rizvi', groupId: 'group-c' },
+  { id: 'team-c4', name: 'Abdulaziz Al Yafei / Osman Al Amoodi', player1: 'Abdulaziz Al Yafei', player2: 'Osman Al Amoodi', groupId: 'group-c' },
 
   // Group D
-  { id: 'team-d1', name: 'Adil / Fawaz', player1: 'Adil', player2: 'Fawaz', groupId: 'group-d' },
-  { id: 'team-d2', name: 'Ansaf / Faham', player1: 'Ansaf', player2: 'Faham', groupId: 'group-d' },
-  { id: 'team-d3', name: 'Bilal / Ali', player1: 'Bilal', player2: 'Ali', groupId: 'group-d' },
-  { id: 'team-d4', name: 'Asim / Abhijit', player1: 'Asim', player2: 'Abhijit', groupId: 'group-d' },
+  { id: 'team-d1', name: 'Mohammed Jalil / Abdullah Mahmoud', player1: 'Mohammed Jalil', player2: 'Abdullah Mahmoud', groupId: 'group-d' },
+  { id: 'team-d2', name: 'Ameen / Aflah', player1: 'Ameen', player2: 'Aflah', groupId: 'group-d' },
+  { id: 'team-d3', name: 'Asim / Abhijit', player1: 'Asim', player2: 'Abhijit', groupId: 'group-d' },
+  { id: 'team-d4', name: 'Suhaim / Zubair', player1: 'Suhaim', player2: 'Zubair', groupId: 'group-d' },
 
   // Group E
-  { id: 'team-e1', name: 'Ameen / Wayward', player1: 'Ameen', player2: 'Wayward', groupId: 'group-e' },
-  { id: 'team-e2', name: 'Athif / Nadeer', player1: 'Athif', player2: 'Nadeer', groupId: 'group-e' },
-  { id: 'team-e3', name: 'Hadi / Shahir', player1: 'Hadi', player2: 'Shahir', groupId: 'group-e' },
-  { id: 'team-e4', name: 'Omer / Tariq', player1: 'Omer', player2: 'Tariq', groupId: 'group-e' },
+  { id: 'team-e1', name: 'Adil / Fawaz', player1: 'Adil', player2: 'Fawaz', groupId: 'group-e' },
+  { id: 'team-e2', name: 'Sabah / Hamdan', player1: 'Sabah', player2: 'Hamdan', groupId: 'group-e' },
+  { id: 'team-e3', name: 'Zameer / Moosa Faisal', player1: 'Zameer', player2: 'Moosa Faisal', groupId: 'group-e' },
+  { id: 'team-e4', name: 'Bilal / Ali', player1: 'Bilal', player2: 'Ali', groupId: 'group-e' },
 ];
 
 /**
- * Generate 30 round robin matches (6 per 4-team group)
- * For 4 teams [0, 1, 2, 3]:
- * 1: 0 vs 1
- * 2: 2 vs 3
- * 3: 0 vs 2
- * 4: 1 vs 3
- * 5: 0 vs 3
- * 6: 1 vs 2
+ * The official round-robin fixture order for each group, expressed as indices
+ * into that group's team list (0 = the group's first team). Every group plays
+ * all six of its matches on one dedicated court, in this exact order, so the
+ * generated schedule always matches the printed official fixture list.
+ */
+const GROUP_FIXTURE_LAYOUT: Record<string, [number, number][]> = {
+  'group-a': [[0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2]],
+  'group-b': [[0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2]],
+  'group-c': [[0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2]],
+  'group-d': [[0, 1], [2, 3], [3, 1], [2, 0], [2, 1], [3, 0]],
+  'group-e': [[0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2]],
+};
+
+/** Official start window for each round-robin slot. */
+const GROUP_START_TIMES = [
+  '8:00–8:30',
+  '8:30–9:00',
+  '9:00–9:30',
+  '9:30–10:00',
+  '10:00–10:30',
+  '10:30–11:00',
+];
+
+/**
+ * Generate the official 30 round-robin matches (6 per 4-team group) plus the
+ * 8-match knockout bracket. Group matches carry real teams; the knockout
+ * bracket starts empty (TBD) and is seeded later from the group standings.
  *
- * Group stage format: every group plays ALL of its matches on one dedicated
- * court (Group A -> Court 1, Group B -> Court 2, ...). Groups are never split
- * across multiple courts during the round robin.
+ * The output is fully deterministic - no randomness - so regenerating never
+ * changes the schedule.
  */
 export function generateInitialMatches(groups: Group[], teams: Team[], courts: Court[]): Match[] {
   const matches: Match[] = [];
   let matchCounter = 1;
 
-  const times = ['09:00', '09:45', '10:30', '11:15', '12:00', '12:45'];
-
   groups.forEach((group, gIdx) => {
     const groupTeams = teams.filter((t) => t.groupId === group.id);
     if (groupTeams.length < 2) return;
 
-    const pairs: [number, number][] = [
-      [0, 1],
-      [2, 3],
-      [0, 2],
-      [1, 3],
-      [0, 3],
-      [1, 2],
-    ];
+    const layout = GROUP_FIXTURE_LAYOUT[group.id] || [[0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2]];
+    const court = courts[gIdx % courts.length];
 
-    pairs.forEach((pair, rIdx) => {
-      const t1 = groupTeams[pair[0]];
-      const t2 = groupTeams[pair[1]];
+    layout.forEach(([i, j], rIdx) => {
+      const t1 = groupTeams[i];
+      const t2 = groupTeams[j];
       if (!t1 || !t2) return;
-
-      const court = courts[gIdx % courts.length];
 
       matches.push({
         id: `match-${group.id}-${rIdx + 1}`,
         tournamentId: 'cpa-padel-2026',
         groupId: group.id,
+        stage: 'group',
         matchNumber: matchCounter++,
         team1Id: t1.id,
         team2Id: t2.id,
         courtId: court ? court.id : null,
-        scheduledTime: times[rIdx] || '13:00',
-        stage: 'group',
+        scheduledTime: GROUP_START_TIMES[rIdx] || '11:00–11:30',
         status: 'scheduled',
         team1Score: null,
         team2Score: null,
@@ -122,9 +135,10 @@ export function generateInitialMatches(groups: Group[], teams: Team[], courts: C
     });
   });
 
-  // Knockout Matches (Quarter-Finals -> Semi-Finals -> 3rd Place & Grand Final)
+  // Knockout bracket: Quarter-Finals -> Semi-Finals -> 3rd Place & Grand Final.
+  // Teams are intentionally blank so the bracket shows TBD until it is seeded.
   const knockoutMatches: Match[] = [
-    // Quarter-Finals (QF1, QF2, QF3, QF4)
+    // Quarter-Finals
     {
       id: 'match-ko-qf1',
       tournamentId: 'cpa-padel-2026',
@@ -135,16 +149,13 @@ export function generateInitialMatches(groups: Group[], teams: Team[], courts: C
       nextMatchId: 'match-ko-sf1',
       nextMatchSlot: 'team1',
       matchNumber: matchCounter++,
-      team1Id: 'team-a1', // Hamood / Hossam
-      team2Id: 'team-c2', // Hashim / Muhsin
+      team1Id: '',
+      team2Id: '',
       courtId: courts[0]?.id || 'court-1',
       scheduledTime: '14:00',
-      status: 'completed',
-      team1Score: 6,
-      team2Score: 1,
-      completedAt: new Date(Date.now() - 3600000 * 3).toISOString(),
-      submittedBy: 'Official Scorekeeper',
-      scoreSummary: '6 - 1',
+      status: 'scheduled',
+      team1Score: null,
+      team2Score: null,
     },
     {
       id: 'match-ko-qf2',
@@ -156,16 +167,13 @@ export function generateInitialMatches(groups: Group[], teams: Team[], courts: C
       nextMatchId: 'match-ko-sf1',
       nextMatchSlot: 'team2',
       matchNumber: matchCounter++,
-      team1Id: 'team-b1', // Derrick / Elvis
-      team2Id: 'team-d2', // Ansaf / Faham
+      team1Id: '',
+      team2Id: '',
       courtId: courts[1]?.id || 'court-2',
       scheduledTime: '14:00',
-      status: 'completed',
-      team1Score: 6,
-      team2Score: 4,
-      completedAt: new Date(Date.now() - 3600000 * 3).toISOString(),
-      submittedBy: 'Official Scorekeeper',
-      scoreSummary: '6 - 4',
+      status: 'scheduled',
+      team1Score: null,
+      team2Score: null,
     },
     {
       id: 'match-ko-qf3',
@@ -177,16 +185,13 @@ export function generateInitialMatches(groups: Group[], teams: Team[], courts: C
       nextMatchId: 'match-ko-sf2',
       nextMatchSlot: 'team1',
       matchNumber: matchCounter++,
-      team1Id: 'team-c1', // Jamshi / Hisham
-      team2Id: 'team-a3', // Faisal / Muhammed
+      team1Id: '',
+      team2Id: '',
       courtId: courts[2]?.id || 'court-3',
       scheduledTime: '14:45',
-      status: 'completed',
-      team1Score: 6,
-      team2Score: 3,
-      completedAt: new Date(Date.now() - 3600000 * 2.5).toISOString(),
-      submittedBy: 'Official Scorekeeper',
-      scoreSummary: '6 - 3',
+      status: 'scheduled',
+      team1Score: null,
+      team2Score: null,
     },
     {
       id: 'match-ko-qf4',
@@ -198,19 +203,16 @@ export function generateInitialMatches(groups: Group[], teams: Team[], courts: C
       nextMatchId: 'match-ko-sf2',
       nextMatchSlot: 'team2',
       matchNumber: matchCounter++,
-      team1Id: 'team-d1', // Adil / Fawaz
-      team2Id: 'team-b2', // Suhaim / Zubair
+      team1Id: '',
+      team2Id: '',
       courtId: courts[3]?.id || 'court-4',
       scheduledTime: '14:45',
-      status: 'completed',
-      team1Score: 7,
-      team2Score: 5,
-      completedAt: new Date(Date.now() - 3600000 * 2.5).toISOString(),
-      submittedBy: 'Official Scorekeeper',
-      scoreSummary: '7 - 5',
+      status: 'scheduled',
+      team1Score: null,
+      team2Score: null,
     },
 
-    // Semi-Finals (SF1, SF2)
+    // Semi-Finals
     {
       id: 'match-ko-sf1',
       tournamentId: 'cpa-padel-2026',
@@ -223,16 +225,13 @@ export function generateInitialMatches(groups: Group[], teams: Team[], courts: C
       loserNextMatchId: 'match-ko-3rd',
       loserNextMatchSlot: 'team1',
       matchNumber: matchCounter++,
-      team1Id: 'team-a1', // Hamood / Hossam (Winner QF1)
-      team2Id: 'team-b1', // Derrick / Elvis (Winner QF2)
+      team1Id: '',
+      team2Id: '',
       courtId: courts[0]?.id || 'court-1',
       scheduledTime: '15:45',
-      status: 'completed',
-      team1Score: 6,
-      team2Score: 2,
-      completedAt: new Date(Date.now() - 3600000 * 1.5).toISOString(),
-      submittedBy: 'Official Scorekeeper',
-      scoreSummary: '6 - 2',
+      status: 'scheduled',
+      team1Score: null,
+      team2Score: null,
     },
     {
       id: 'match-ko-sf2',
@@ -246,16 +245,13 @@ export function generateInitialMatches(groups: Group[], teams: Team[], courts: C
       loserNextMatchId: 'match-ko-3rd',
       loserNextMatchSlot: 'team2',
       matchNumber: matchCounter++,
-      team1Id: 'team-c1', // Jamshi / Hisham (Winner QF3)
-      team2Id: 'team-d1', // Adil / Fawaz (Winner QF4)
+      team1Id: '',
+      team2Id: '',
       courtId: courts[1]?.id || 'court-2',
       scheduledTime: '15:45',
-      status: 'completed',
-      team1Score: 6,
-      team2Score: 4,
-      completedAt: new Date(Date.now() - 3600000 * 1.5).toISOString(),
-      submittedBy: 'Official Scorekeeper',
-      scoreSummary: '6 - 4',
+      status: 'scheduled',
+      team1Score: null,
+      team2Score: null,
     },
 
     // 3rd Place Match
@@ -267,19 +263,16 @@ export function generateInitialMatches(groups: Group[], teams: Team[], courts: C
       round: '3rd',
       bracketPosition: 1,
       matchNumber: matchCounter++,
-      team1Id: 'team-b1', // Derrick / Elvis (Loser SF1)
-      team2Id: 'team-d1', // Adil / Fawaz (Loser SF2)
+      team1Id: '',
+      team2Id: '',
       courtId: courts[1]?.id || 'court-2',
       scheduledTime: '16:45',
-      status: 'completed',
-      team1Score: 6,
-      team2Score: 4,
-      completedAt: new Date(Date.now() - 3600000 * 0.8).toISOString(),
-      submittedBy: 'Official Scorekeeper',
-      scoreSummary: '6 - 4',
+      status: 'scheduled',
+      team1Score: null,
+      team2Score: null,
     },
 
-    // Grand FINAL
+    // Grand Final
     {
       id: 'match-ko-final',
       tournamentId: 'cpa-padel-2026',
@@ -288,90 +281,17 @@ export function generateInitialMatches(groups: Group[], teams: Team[], courts: C
       round: 'final',
       bracketPosition: 1,
       matchNumber: matchCounter++,
-      team1Id: 'team-a1', // Hamood / Hossam (Winner SF1)
-      team2Id: 'team-c1', // Jamshi / Hisham (Winner SF2)
+      team1Id: '',
+      team2Id: '',
       courtId: courts[0]?.id || 'court-1',
       scheduledTime: '17:30',
-      status: 'completed',
-      team1Score: 6,
-      team2Score: 3,
-      completedAt: new Date(Date.now() - 1800000).toISOString(),
-      submittedBy: 'Head Referee',
-      scoreSummary: '6 - 3',
+      status: 'scheduled',
+      team1Score: null,
+      team2Score: null,
     },
   ];
 
   matches.push(...knockoutMatches);
-
-  // Populate some realistic finished and live matches for the demo:
-  // Match 1 (Group A): Hamood / Hossam vs Abdullah Othman / Akmal Rizvi -> Completed 6-3
-  const m1 = matches.find((m) => m.id === 'match-group-a-1');
-  if (m1) {
-    m1.status = 'completed';
-    m1.team1Score = 6;
-    m1.team2Score = 3;
-    m1.completedAt = new Date(Date.now() - 3600000 * 2).toISOString();
-    m1.submittedBy = 'Scorekeeper (Court 1)';  }
-
-  // Match 2 (Group A): Faisal / Muhammed vs Mohammed Jalil / Abdullah Mahmoud -> Completed 6-4
-  const m2 = matches.find((m) => m.id === 'match-group-a-2');
-  if (m2) {
-    m2.status = 'completed';
-    m2.team1Score = 6;
-    m2.team2Score = 4;
-    m2.completedAt = new Date(Date.now() - 3600000 * 1.5).toISOString();
-    m2.submittedBy = 'Scorekeeper (Court 1)';
-  }
-
-  // Match 1 (Group B): Derrick / Elvis vs Suhaim / Zubair -> Completed 6-2
-  const mb1 = matches.find((m) => m.id === 'match-group-b-1');
-  if (mb1) {
-    mb1.status = 'completed';
-    mb1.team1Score = 6;
-    mb1.team2Score = 2;
-    mb1.completedAt = new Date(Date.now() - 3600000 * 1.2).toISOString();
-    mb1.submittedBy = 'Scorekeeper (Court 2)';
-  }
-
-  // Match 1 (Group C): Jamshi / Hisham vs Hashim / Muhsin -> Completed 6-4
-  const mc1 = matches.find((m) => m.id === 'match-group-c-1');
-  if (mc1) {
-    mc1.status = 'completed';
-    mc1.team1Score = 6;
-    mc1.team2Score = 4;
-    mc1.completedAt = new Date(Date.now() - 3600000 * 0.8).toISOString();
-    mc1.submittedBy = 'Scorekeeper (Court 3)';
-    mc1.scoreSummary = '6 - 4';
-  }
-
-  // Live match on Court 1: Group A, Hamood / Hossam vs Faisal / Muhammed (4 - 3)
-  const m3 = matches.find((m) => m.id === 'match-group-a-3');
-  if (m3) {
-    m3.courtId = 'court-1';
-    m3.status = 'live';
-    m3.team1Score = 4;
-    m3.team2Score = 3;
-    m3.scoreSummary = '4 - 3';
-    m3.padelState = {
-      matchId: 'match-group-a-3',
-      team1Games: 4,
-      team2Games: 3,
-      team1Points: 2, // 30
-      team2Points: 1, // 15
-      isGoldenPoint: false,
-      isMatchOver: false,
-      winnerTeamId: null,
-      lastEventMessage: 'Point Hamood / Hossam (30 - 15)',
-      history: [],
-    };
-  }
-
-  // Ready match on Court 2: Group B, Zameer / Moosa Faisal vs Abdulaziz Al Yafei / Osman Al Amoodi
-  const mb2 = matches.find((m) => m.id === 'match-group-b-2');
-  if (mb2) {
-    mb2.courtId = 'court-2';
-    mb2.status = 'ready';
-  }
 
   return matches;
 }

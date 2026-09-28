@@ -179,14 +179,19 @@ export async function setMatchLiveScore(
   return data;
 }
 
-export async function adminGenerateMatches(token: string) {
-  const res = await fetch('/api/admin/matches/generate', {
+/**
+ * Reset the score of every match back to 0-0 / scheduled and clear the knockout
+ * bracket back to TBD. The server broadcasts the change to all spectators over
+ * SSE, so their boards update automatically. Game times/courts are untouched.
+ */
+export async function resetAllScores(token: string) {
+  const res = await fetch('/api/scorekeeper/reset-all-scores', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to generate matches');
-  return data;
+  if (!res.ok) throw new Error(data.error || 'Failed to reset all scores');
+  return data as { success: boolean; matchesReset: number; knockoutReset: number };
 }
 
 export async function adminUpdateMatch(token: string, match: Partial<Match> & { id: string }) {
@@ -269,16 +274,6 @@ export async function adminSaveSettings(token: string, settings: Partial<Tournam
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Failed to save settings');
-  return data;
-}
-
-export async function adminResetDemo(token: string) {
-  const res = await fetch('/api/admin/reset-demo', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to reset demo data');
   return data;
 }
 
