@@ -17,6 +17,7 @@ import {
 import { Court, Group, Team } from '../types';
 import { EnrichedMatch } from '../api';
 import actionSquareImg from '../assets/images/padel_action_square_1790159179818.jpg';
+import courtsIconSvgRaw from '../assets/courts-icon.svg?raw';
 import rankingsIconSvgRaw from '../assets/rankings-icon.svg?raw';
 import { pairLabel } from '../utils/teamDisplay';
 
@@ -25,6 +26,7 @@ export type NavTab = 'results' | 'courts' | 'standings' | 'knockout' | 'matches'
 // Build the data URI in JS: the SVG ships inside the bundle, so no separate
 // asset request can ever fail or get cached/stale independently.
 const rankingsIconDataUri = `data:image/svg+xml,${encodeURIComponent(rankingsIconSvgRaw)}`;
+const courtsIconDataUri = `data:image/svg+xml,${encodeURIComponent(courtsIconSvgRaw)}`;
 
 interface NavbarProps {
   activeTab: NavTab;
@@ -319,9 +321,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   }`}
                 >
                   <img
-                    src={actionSquareImg}
-                    alt="Padel Court Action"
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    src={courtsIconDataUri}
+                    alt="CPA Padel Courts icon"
+                    loading="lazy"
+                    className="w-full h-full object-cover"
                   />
                   {/* Scrim + live broadcast badge */}
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-slate-950/20" />
