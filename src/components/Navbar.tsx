@@ -280,36 +280,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="group flex flex-col items-center cursor-pointer select-none"
               >
                 <div
-                  className={`w-18 h-18 sm:w-20 sm:h-20 rounded-2xl p-2 bg-gradient-to-br from-blue-100 to-sky-200 border-2 transition-all duration-200 flex flex-col items-center justify-center shadow-lg relative overflow-hidden text-center ${
+                  className={`w-18 h-18 sm:w-20 sm:h-20 rounded-2xl p-0 bg-gradient-to-br from-[#CCFF00] to-lime-300 border-2 transition-all duration-200 flex flex-col shadow-lg relative overflow-hidden text-center ${
                     activeTab === 'standings'
                       ? 'border-slate-900 scale-105'
-                      : 'border-blue-300/80 hover:border-blue-500 hover:scale-102'
+                      : 'border-white/80 hover:border-blue-500 hover:scale-102'
                   }`}
                 >
-                  <div className="absolute -right-2 -bottom-2 opacity-10">
-                    <Trophy className="w-12 h-12 text-slate-950" />
-                  </div>
-                  {/* Leaderboard mini-icon: three ranked rows */}
-                  <div className="mt-0.5 mb-1 flex flex-col items-center gap-[3px] relative">
-                    <div className="flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-[4px] bg-[#CCFF00] border border-slate-900/70" />
-                      <span className="w-7 h-1.5 rounded-full bg-slate-900/80" />
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-[4px] bg-slate-900/25" />
-                      <span className="w-5 h-1.5 rounded-full bg-slate-900/55" />
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-[4px] bg-slate-900/25" />
-                      <span className="w-3.5 h-1.5 rounded-full bg-slate-900/40" />
-                    </div>
-                  </div>
-                  <span className="relative text-[9px] font-mono font-black uppercase text-blue-800 tracking-wider leading-none">
-                    CPA
-                  </span>
-                  <span className="relative text-[10px] sm:text-[11px] font-display font-bold uppercase text-slate-950 leading-tight">
-                    RANKINGS
-                  </span>
+                  {/* Custom rankings icon (optimised SVG, full-bleed). */}
+                  <img
+                    src="/rankings-icon.svg"
+                    alt="CPA Rankings"
+                    loading="lazy"
+                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
                 </div>
 
                 <div className="mt-1.5 text-[11px] font-mono font-extrabold uppercase tracking-wide text-slate-950">

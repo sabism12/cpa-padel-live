@@ -324,23 +324,14 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
       {/* 🔴 Active LIVE Matches Highlight (if any) */}
       {matches.filter((m) => m.status === 'live').length > 0 && (
         <section id="section-live-matches">
-          <div className="flex items-center justify-between mb-3 px-1">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-[#0A0A0F] animate-ping" />
-              <h2 className="text-xl sm:text-2xl font-display font-bold text-[#0A0A0F] uppercase tracking-tight">
-                Live On Court Now
-              </h2>
-            </div>
-            <button
-              onClick={onGoToCourts}
-              className="text-xs font-mono font-black text-[#0A0A0F] hover:underline flex items-center gap-1 transition-colors uppercase tracking-wider"
-            >
-              <span>View All Courts</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </button>
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#0A0A0F] animate-ping" />
+            <h2 className="text-4xl sm:text-5xl font-display font-semibold text-[#0A0A0F] uppercase tracking-tight leading-[0.95]">
+              Live On Court Now
+            </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-4">
             {matches
               .filter((m) => m.status === 'live')
               .map((match) => {
@@ -353,40 +344,43 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                   <div
                     key={match.id}
                     id={`live-card-${match.id}`}
-                    className="rounded-3xl bg-[#0A0A0F] text-white border-2 border-blue-400 p-6 shadow-2xl relative overflow-hidden space-y-4"
+                    className="rounded-3xl bg-[#0A0A0F] text-white border-2 border-blue-400 p-4 sm:p-6 shadow-2xl relative overflow-hidden space-y-3 sm:space-y-4"
                   >
                     {/* Header */}
                     <div className="flex items-center justify-between pb-3 border-b border-zinc-700/60">
                       <div className="flex items-center gap-2">
-                        <span className="px-3 py-1 rounded-full bg-[#CCFF00] text-slate-950 text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                        <span className="px-3 py-1 rounded-full bg-[#CCFF00] text-slate-950 text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm shrink-0">
                           <span className="w-2 h-2 rounded-full bg-slate-950 animate-pulse" />
                           LIVE
                         </span>
-                        <span className="text-xs font-mono font-bold uppercase tracking-wider text-blue-300">
+                        <span className="px-2.5 py-1 rounded-full bg-blue-500/15 border border-blue-400/30 text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider text-blue-300 truncate min-w-0">
                           {match.court?.name || 'Assigned Court'}
                         </span>
                       </div>
-                      <span className="text-xs font-mono font-bold text-yellow-300">{match.group?.name}</span>
+                      <span className="px-2.5 py-1 rounded-full bg-[#CCFF00]/10 border border-[#CCFF00]/30 text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider text-[#CCFF00] shrink-0">
+                        {match.group?.name}
+                      </span>
                     </div>
 
                     {/* Teams & Games Count */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                       {/* Team 1 */}
                       <div
                         onClick={() => match.team1?.id && onSelectTeam(match.team1.id)}
-                        className="p-3.5 rounded-2xl bg-zinc-800/60 border border-zinc-700/80 text-center cursor-pointer hover:border-blue-400 transition-colors"
+                        className="p-3 sm:p-3.5 rounded-2xl bg-zinc-800/60 border border-zinc-700/80 text-center cursor-pointer hover:border-blue-400 transition-colors"
                       >
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-400 block mb-1 truncate">
+                        <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-blue-400 block mb-1.5 truncate">
                           PAIRING 1
                         </span>
-                        <div className="font-sans text-sm font-bold text-white leading-tight mb-2">
-                          {pairLabel(match.team1, 'TBD')}
+                        <div className="text-sm sm:text-base font-bold text-white leading-snug mb-2.5">
+                          {match.team1?.player1 ?? 'TBD'}
+                          <span className="block">{match.team1?.player2 ?? ''}</span>
                         </div>
-                        <div className="pt-1.5 border-t border-zinc-700">
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-400 block">
+                        <div className="pt-2 border-t border-zinc-700">
+                          <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-400 block">
                             GAMES
                           </span>
-                          <span className="text-3xl font-display font-black text-yellow-300">
+                          <span className="text-2xl sm:text-3xl font-display font-black text-[#CCFF00] leading-tight">
                             {g1}
                           </span>
                         </div>
@@ -395,19 +389,20 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                       {/* Team 2 */}
                       <div
                         onClick={() => match.team2?.id && onSelectTeam(match.team2.id)}
-                        className="p-3.5 rounded-2xl bg-zinc-800/60 border border-zinc-700/80 text-center cursor-pointer hover:border-blue-400 transition-colors"
+                        className="p-3 sm:p-3.5 rounded-2xl bg-zinc-800/60 border border-zinc-700/80 text-center cursor-pointer hover:border-blue-400 transition-colors"
                       >
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-400 block mb-1 truncate">
+                        <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-blue-400 block mb-1.5 truncate">
                           PAIRING 2
                         </span>
-                        <div className="font-sans text-sm font-bold text-white leading-tight mb-2">
-                          {pairLabel(match.team2, 'TBD')}
+                        <div className="text-sm sm:text-base font-bold text-white leading-snug mb-2.5">
+                          {match.team2?.player1 ?? 'TBD'}
+                          <span className="block">{match.team2?.player2 ?? ''}</span>
                         </div>
-                        <div className="pt-1.5 border-t border-zinc-700">
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-400 block">
+                        <div className="pt-2 border-t border-zinc-700">
+                          <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-400 block">
                             GAMES
                           </span>
-                          <span className="text-3xl font-display font-black text-yellow-300">
+                          <span className="text-2xl sm:text-3xl font-display font-black text-[#CCFF00] leading-tight">
                             {g2}
                           </span>
                         </div>
@@ -415,8 +410,8 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                     </div>
 
                     {/* Current Game Point & Golden Point Banner */}
-                    <div className="p-3 rounded-2xl bg-slate-950/90 border border-zinc-700 flex flex-col items-center justify-center gap-1 shadow-inner">
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+                    <div className="py-3.5 px-3 rounded-2xl bg-slate-950/90 border border-zinc-700 flex flex-col items-center justify-center gap-1 shadow-inner">
+                      <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
                         Current Game Points
                       </span>
                       {isGolden ? (
@@ -426,7 +421,7 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                           <Flame className="w-4 h-4 text-slate-950" />
                         </div>
                       ) : (
-                        <div className="text-base font-black font-mono text-[#CCFF00] tracking-wide">
+                        <div className="text-lg sm:text-xl font-black font-mono text-[#CCFF00] tracking-wide">
                           {padel
                             ? `${formatPointDisplay(padel.team1Points)} — ${formatPointDisplay(padel.team2Points)}`
                             : 'LOVE — LOVE'}
