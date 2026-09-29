@@ -107,7 +107,7 @@ export const GatewayInfoPanel: React.FC = () => {
             </span>
             <span
               className={`inline-flex items-center gap-1.5 font-bold ${
-                status?.upstreamReachable ? 'text-emerald-300' : 'text-amber-300'
+                status?.upstreamReachable ? 'text-blue-300' : 'text-amber-300'
               }`}
             >
               <Radio className="w-3.5 h-3.5" />

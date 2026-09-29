@@ -33,7 +33,7 @@ function statusLabel(match: EnrichedMatch): string {
 function statusClasses(match: EnrichedMatch): string {
   switch (match.status) {
     case 'live':
-      return 'text-[#00DF81]';
+      return 'text-[#CCFF00]';
     case 'completed':
       return 'text-slate-400';
     case 'ready':
@@ -41,7 +41,7 @@ function statusClasses(match: EnrichedMatch): string {
     case 'cancelled':
       return 'text-rose-400';
     default:
-      return 'text-purple-300';
+      return 'text-zinc-400';
   }
 }
 
@@ -137,16 +137,16 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
         <span className="flex items-center gap-2.5 min-w-0">
           <span
             className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-              match.status === 'live' ? 'bg-[#00DF81] animate-pulse' : 'bg-purple-500/70'
+              match.status === 'live' ? 'bg-[#CCFF00] animate-pulse' : 'bg-blue-500/70'
             }`}
           />
           <span
-            className={`truncate text-sm sm:text-[15px] font-bold transition-colors group-hover/row:text-[#00DF81] ${
+            className={`truncate text-sm sm:text-[15px] font-bold transition-colors group-hover/row:text-[#CCFF00] ${
               isWinner
                 ? 'text-white'
                 : isLoser
                 ? 'text-slate-500 line-through'
-                : 'text-purple-100'
+                : 'text-zinc-200'
             }`}
           >
             {pairLabel(team, 'To be decided')}
@@ -156,7 +156,7 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
         {showScore && (
           <span
             className={`shrink-0 font-display font-black text-base sm:text-lg tabular-nums ${
-              isWinner ? 'text-[#00DF81]' : 'text-purple-300'
+              isWinner ? 'text-[#CCFF00]' : 'text-zinc-400'
             }`}
           >
             {score}
@@ -169,13 +169,13 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-emerald-400/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-900/20">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#170036] text-[#00DF81] text-xs font-black uppercase tracking-wider mb-2 shadow-sm">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0A0A0F] text-[#CCFF00] text-xs font-black uppercase tracking-wider mb-2 shadow-sm">
             <Calendar className="w-3.5 h-3.5" />
             Tournament Schedule
           </div>
-          <h2 className="text-2xl sm:text-3xl font-display font-bold text-[#170036] uppercase tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-display font-bold text-[#0A0A0F] uppercase tracking-tight">
             All Match Fixtures
           </h2>
           <p className="text-xs font-mono font-bold text-slate-800 mt-0.5">
@@ -185,7 +185,7 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
       </div>
 
       {/* Filter Bar */}
-      <div className="p-4 bg-white border border-emerald-300/80 rounded-3xl space-y-3 shadow-xl">
+      <div className="p-4 bg-white border border-blue-300/80 rounded-3xl space-y-3 shadow-xl">
         <div className="flex flex-col md:flex-row gap-3">
           {/* Search bar */}
           <div className="relative flex-1">
@@ -195,7 +195,7 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
               placeholder="Filter by player name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
+              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 font-medium"
             />
           </div>
 
@@ -203,7 +203,7 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
           <select
             value={selectedGroup}
             onChange={(e) => setSelectedGroup(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-800 font-bold focus:outline-none focus:border-emerald-500"
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-800 font-bold focus:outline-none focus:border-blue-500"
           >
             <option value="all">All Groups &amp; Stages</option>
             <option value="knockout">🏆 Knockout Stage</option>
@@ -218,7 +218,7 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
           <select
             value={selectedCourt}
             onChange={(e) => setSelectedCourt(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-800 font-bold focus:outline-none focus:border-emerald-500"
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-800 font-bold focus:outline-none focus:border-blue-500"
           >
             <option value="all">All Courts</option>
             {courts.map((c) => (
@@ -232,7 +232,7 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-800 font-bold focus:outline-none focus:border-emerald-500"
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-800 font-bold focus:outline-none focus:border-blue-500"
           >
             <option value="all">All Statuses</option>
             <option value="live">🔴 Live Now</option>
@@ -245,7 +245,7 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
 
       {/* Court-grouped fixture boards */}
       {courtGroups.length === 0 ? (
-        <div className="py-12 text-center text-slate-500 text-sm bg-white/80 rounded-3xl border border-emerald-300 shadow-md font-mono">
+        <div className="py-12 text-center text-slate-500 text-sm bg-white/80 rounded-3xl border border-blue-300 shadow-md font-mono">
           No matches match the selected criteria.
         </div>
       ) : (
@@ -254,10 +254,10 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
             <section
               key={courtId}
               id={`court-fixtures-${courtId}`}
-              className="rounded-3xl bg-[#0b0725] border border-purple-900/60 p-3 sm:p-4 shadow-2xl"
+              className="rounded-3xl bg-[#0A0A0F] border border-zinc-700/60 p-3 sm:p-4 shadow-2xl"
             >
               {/* Court header bar */}
-              <div className="rounded-2xl bg-[#00DF81] px-5 py-3 mb-3 shadow-md flex items-center justify-between gap-3">
+              <div className="rounded-2xl bg-[#CCFF00] px-5 py-3 mb-3 shadow-md flex items-center justify-between gap-3">
                 <div className="flex items-baseline gap-3 min-w-0">
                   <h3 className="font-display font-bold text-slate-950 text-lg sm:text-xl uppercase tracking-tight leading-none truncate">
                     {court?.name || 'Court To Be Assigned'}
@@ -279,11 +279,11 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
                   <article
                     key={match.id}
                     id={`match-fixture-${match.id}`}
-                    className="rounded-2xl bg-[#170036] border border-purple-900/70 shadow-lg overflow-hidden"
+                    className="rounded-2xl bg-[#0A0A0F] border border-zinc-700/70 shadow-lg overflow-hidden"
                   >
                     {/* Round + Status */}
                     <div className="flex items-center justify-between gap-3 px-4 pt-3.5 pb-2">
-                      <span className="text-[11px] font-mono font-black uppercase tracking-widest text-purple-300 truncate">
+                      <span className="text-[11px] font-mono font-black uppercase tracking-widest text-zinc-400 truncate">
                         {stageLabel(match)}
                       </span>
                       <span
@@ -292,7 +292,7 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
                         )}`}
                       >
                         {match.status === 'live' && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#00DF81] animate-ping" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-ping" />
                         )}
                         {statusLabel(match)}
                       </span>
@@ -305,15 +305,15 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
                     </div>
 
                     {/* Footer: time + live point state */}
-                    <div className="mt-3 border-t border-purple-900/70 px-4 py-3 flex items-center justify-between gap-3">
-                      <span className="flex items-center gap-2 text-[11px] font-mono font-bold text-purple-200 min-w-0">
-                        <Clock className="w-3.5 h-3.5 shrink-0 text-purple-400" />
+                    <div className="mt-3 border-t border-zinc-700/70 px-4 py-3 flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2 text-[11px] font-mono font-bold text-zinc-300 min-w-0">
+                        <Clock className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
                         <span className="truncate">
                           {match.status === 'completed'
                             ? 'Finished'
                             : `Starts: ${match.scheduledTime || 'TBD'}`}
                         </span>
-                        <span className="text-purple-500 shrink-0">
+                        <span className="text-blue-500 shrink-0">
                           #{match.matchNumber}
                         </span>
                       </span>
@@ -323,7 +323,7 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
                           <PadelScoreBadge match={match} />
                         </div>
                       ) : match.scoreSummary ? (
-                        <span className="shrink-0 text-[11px] font-mono font-bold text-emerald-300">
+                        <span className="shrink-0 text-[11px] font-mono font-bold text-blue-300">
                           {match.scoreSummary}
                         </span>
                       ) : null}

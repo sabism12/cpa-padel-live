@@ -129,7 +129,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     return (
       <div className="max-w-xl mx-auto py-12 px-4 text-center">
         <div className="p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl space-y-5">
-          <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mx-auto">
+          <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-zinc-400 flex items-center justify-center mx-auto">
             <ShieldCheck className="w-8 h-8" />
           </div>
           <div>
@@ -142,7 +142,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           <button
             id="btn-admin-login-prompt"
             onClick={onOpenAuth}
-            className="w-full py-3.5 px-6 rounded-xl font-bold text-sm bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/20 transition-all"
+            className="w-full py-3.5 px-6 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition-all"
           >
             Sign In with Administrator Credentials
           </button>
@@ -404,7 +404,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       {/* Admin Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-purple-500 text-white font-black shadow-lg shadow-purple-500/20">
+          <div className="p-2 rounded-xl bg-blue-500 text-white font-black shadow-lg shadow-blue-500/20">
             <ShieldCheck className="w-5 h-5" />
           </div>
           <div>
@@ -476,13 +476,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
           id="admin-alert-banner"
           className={`p-3.5 rounded-xl border text-xs sm:text-sm flex items-center justify-between gap-2 animate-in zoom-in-95 duration-150 ${
             feedbackMessage.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              ? 'bg-blue-500/10 border-blue-500/30 text-blue-300'
               : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
           }`}
         >
           <div className="flex items-center gap-2">
             {feedbackMessage.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
             ) : (
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
             )}
@@ -500,7 +500,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           onClick={() => setActiveSubTab('matches')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${
             activeSubTab === 'matches'
-              ? 'bg-purple-600 text-white shadow-sm'
+              ? 'bg-blue-600 text-white shadow-sm'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
@@ -512,7 +512,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           onClick={() => setActiveSubTab('teams')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${
             activeSubTab === 'teams'
-              ? 'bg-purple-600 text-white shadow-sm'
+              ? 'bg-blue-600 text-white shadow-sm'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
@@ -524,7 +524,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           onClick={() => setActiveSubTab('courts')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${
             activeSubTab === 'courts'
-              ? 'bg-purple-600 text-white shadow-sm'
+              ? 'bg-blue-600 text-white shadow-sm'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
@@ -536,7 +536,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           onClick={() => setActiveSubTab('settings')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${
             activeSubTab === 'settings'
-              ? 'bg-purple-600 text-white shadow-sm'
+              ? 'bg-blue-600 text-white shadow-sm'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
@@ -548,7 +548,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           onClick={() => setActiveSubTab('sheets')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${
             activeSubTab === 'sheets'
-              ? 'bg-purple-600 text-white shadow-sm'
+              ? 'bg-blue-600 text-white shadow-sm'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
@@ -560,7 +560,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           onClick={() => setActiveSubTab('qr')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${
             activeSubTab === 'qr'
-              ? 'bg-purple-600 text-white shadow-sm'
+              ? 'bg-blue-600 text-white shadow-sm'
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
@@ -617,7 +617,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             m.status === 'live'
                               ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                               : m.status === 'completed'
-                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                               : m.status === 'ready'
                               ? 'bg-lime-400/20 text-lime-400 border border-lime-400/30'
                               : 'bg-slate-800 text-slate-400'
@@ -642,7 +642,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           onClick={() => setEditingMatch(m)}
                           className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1 ml-auto"
                         >
-                          <Edit2 className="w-3 h-3 text-purple-400" />
+                          <Edit2 className="w-3 h-3 text-zinc-400" />
                           <span>Edit</span>
                         </button>
                       </td>
@@ -750,7 +750,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   <span
                     className={`inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                       court.active
-                        ? 'bg-emerald-500/20 text-emerald-400'
+                        ? 'bg-blue-500/20 text-blue-400'
                         : 'bg-slate-800 text-slate-400'
                     }`}
                   >
@@ -948,7 +948,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
         <div className="space-y-6 max-w-4xl">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400">
+              <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400">
                 <FileSpreadsheet className="w-6 h-6" />
               </div>
               <div>
@@ -966,34 +966,34 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 type="button"
                 id="btn-export-csv"
                 onClick={handleExportCsv}
-                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-emerald-500/50 transition-all flex items-center justify-between text-left group"
+                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-blue-500/50 transition-all flex items-center justify-between text-left group"
               >
                 <div>
-                  <span className="font-bold text-white text-sm group-hover:text-emerald-300">
+                  <span className="font-bold text-white text-sm group-hover:text-blue-300">
                     Export Matches & Scores (.CSV)
                   </span>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Download complete 30-match fixture list and scores ready for Excel / Google Sheets
                   </p>
                 </div>
-                <Download className="w-5 h-5 text-emerald-400 shrink-0 ml-3" />
+                <Download className="w-5 h-5 text-blue-400 shrink-0 ml-3" />
               </button>
 
               <button
                 type="button"
                 id="btn-export-json"
                 onClick={handleExportJson}
-                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-purple-500/50 transition-all flex items-center justify-between text-left group"
+                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-blue-500/50 transition-all flex items-center justify-between text-left group"
               >
                 <div>
-                  <span className="font-bold text-white text-sm group-hover:text-purple-300">
+                  <span className="font-bold text-white text-sm group-hover:text-zinc-400">
                     Export Full Tournament Backup (.JSON)
                   </span>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Complete state including teams, groups, courts, settings, and calculated standings
                   </p>
                 </div>
-                <Download className="w-5 h-5 text-purple-400 shrink-0 ml-3" />
+                <Download className="w-5 h-5 text-zinc-400 shrink-0 ml-3" />
               </button>
             </div>
 

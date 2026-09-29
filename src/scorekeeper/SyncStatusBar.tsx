@@ -40,7 +40,7 @@ export const SyncStatusBar: React.FC<SyncStatusBarProps> = ({
     ? { bg: 'bg-rose-500/10', border: 'border-rose-500/30', text: 'text-rose-300', Icon: WifiOff, label: 'Offline' }
     : mode === 'online-local'
       ? { bg: 'bg-sky-500/10', border: 'border-sky-500/30', text: 'text-sky-300', Icon: Home, label: 'Local Dell' }
-      : { bg: 'bg-emerald-500/10', border: 'border-emerald-500/30', text: 'text-emerald-300', Icon: Cloud, label: 'Direct Internet' };
+      : { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-300', Icon: Cloud, label: 'Direct Internet' };
 
   const { Icon } = modeVisual;
 
@@ -59,7 +59,7 @@ export const SyncStatusBar: React.FC<SyncStatusBarProps> = ({
               Syncing…
             </span>
           ) : allSynced ? (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-300">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-300">
               <CheckCircle2 className="w-3.5 h-3.5" />
               All scores synced
             </span>

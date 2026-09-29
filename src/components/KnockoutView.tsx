@@ -46,10 +46,10 @@ export function getTeamBadgeInfo(teamKey: string) {
   const colors = [
     { bg: 'from-rose-500 to-pink-700', border: 'border-rose-400', text: 'text-white', flag: '🔴' },
     { bg: 'from-sky-500 to-blue-700', border: 'border-sky-400', text: 'text-white', flag: '🔵' },
-    { bg: 'from-emerald-500 to-teal-700', border: 'border-emerald-400', text: 'text-white', flag: '🟢' },
+    { bg: 'from-blue-500 to-sky-700', border: 'border-blue-400', text: 'text-white', flag: '🟢' },
     { bg: 'from-amber-500 to-orange-700', border: 'border-amber-400', text: 'text-slate-950', flag: '🟡' },
-    { bg: 'from-purple-500 to-indigo-700', border: 'border-purple-400', text: 'text-white', flag: '🟣' },
-    { bg: 'from-cyan-500 to-teal-700', border: 'border-cyan-400', text: 'text-slate-950', flag: '💠' },
+    { bg: 'from-blue-500 to-blue-700', border: 'border-zinc-400', text: 'text-white', flag: '🟣' },
+    { bg: 'from-cyan-500 to-sky-700', border: 'border-cyan-400', text: 'text-slate-950', flag: '💠' },
   ];
 
   return colors[hash % colors.length];
@@ -133,7 +133,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
     const surnameClasses = `text-[10px] sm:text-[11px] font-bold leading-tight text-center ${
       isDarkCard
         ? isWinner ? 'text-white' : 'text-slate-400'
-        : isWinner ? 'text-[#170036] font-black' : isLoser ? 'text-slate-400' : 'text-slate-700'
+        : isWinner ? 'text-[#0A0A0F] font-black' : isLoser ? 'text-slate-400' : 'text-slate-700'
     }`;
 
     return (
@@ -161,7 +161,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
           className={`text-sm sm:text-base font-mono font-black mt-0.5 leading-none ${
             isDarkCard
               ? isWinner ? 'text-yellow-300 font-black' : 'text-slate-400'
-              : isWinner ? 'text-[#170036] font-black' : 'text-slate-500'
+              : isWinner ? 'text-[#0A0A0F] font-black' : 'text-slate-500'
           }`}
         >
           {score !== null && score !== undefined ? score : '-'}
@@ -198,12 +198,12 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
         onClick={() => setSelectedMatch(match)}
         className={`group relative w-32 sm:w-36 p-2 sm:p-2.5 rounded-2xl transition-all duration-200 cursor-pointer select-none flex flex-col justify-between ${
           badgeType === 'final'
-            ? 'bg-[#170036] border-2 border-amber-400 shadow-xl text-white hover:border-amber-300'
+            ? 'bg-[#0A0A0F] border-2 border-amber-400 shadow-xl text-white hover:border-amber-300'
             : badgeType === '3rd'
-            ? 'bg-[#170036] border-2 border-sky-400 shadow-lg text-white hover:border-sky-300'
+            ? 'bg-[#0A0A0F] border-2 border-sky-400 shadow-lg text-white hover:border-sky-300'
             : isLive
-            ? 'bg-[#170036] border-2 border-emerald-400 shadow-lg text-white hover:scale-105'
-            : 'bg-slate-50 border-2 border-slate-200 hover:border-emerald-500 shadow-md hover:-translate-y-0.5 text-slate-900'
+            ? 'bg-[#0A0A0F] border-2 border-blue-400 shadow-lg text-white hover:scale-105'
+            : 'bg-slate-50 border-2 border-slate-200 hover:border-blue-500 shadow-md hover:-translate-y-0.5 text-slate-900'
         }`}
       >
         {/* Match Top Teams Container */}
@@ -230,7 +230,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
               3rd
             </span>
           ) : isLive ? (
-            <span className="px-2 py-0.5 rounded-full bg-[#00DF81] text-slate-950 font-black text-[9px] uppercase tracking-wider animate-pulse flex items-center gap-1 shadow-sm">
+            <span className="px-2 py-0.5 rounded-full bg-[#CCFF00] text-slate-950 font-black text-[9px] uppercase tracking-wider animate-pulse flex items-center gap-1 shadow-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-ping" />
               LIVE
             </span>
@@ -253,13 +253,13 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
       {/* 1. TOP HEADER & SUB-NAV (Exact FotMob Style) */}
       <div className="space-y-3">
         {/* Season & Quick Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-emerald-400/40">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-900/20">
           <div className="flex items-center gap-3">
-            <div className="px-3 py-1 rounded-xl bg-white border border-emerald-300 text-xs font-mono font-bold text-slate-900 flex items-center gap-2 shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-[#00DF81]" />
+            <div className="px-3 py-1 rounded-xl bg-white border border-blue-300 text-xs font-mono font-bold text-slate-900 flex items-center gap-2 shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-[#CCFF00]" />
               <span>{settings?.date || '2026 Season Finals'}</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-display font-bold text-[#170036] tracking-tight uppercase">
+            <h1 className="text-xl sm:text-2xl font-display font-bold text-[#0A0A0F] tracking-tight uppercase">
               Knockout Stage
             </h1>
           </div>
@@ -270,21 +270,21 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
               <button
                 onClick={handleSeedBracket}
                 disabled={isSeeding}
-                className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-emerald-300 text-xs font-bold text-slate-900 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-blue-300 text-xs font-bold text-slate-900 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
                 title="Seed bracket matches from current group standings"
               >
-                <Shuffle className={`w-3.5 h-3.5 ${isSeeding ? 'animate-spin text-emerald-600' : 'text-slate-600'}`} />
+                <Shuffle className={`w-3.5 h-3.5 ${isSeeding ? 'animate-spin text-blue-600' : 'text-slate-600'}`} />
                 <span>{isSeeding ? 'Seeding...' : 'Seed from Standings'}</span>
               </button>
             )}
 
             {/* View Mode Toggle */}
-            <div className="flex items-center bg-white border border-emerald-400/60 rounded-xl p-0.5 shadow-sm">
+            <div className="flex items-center bg-white border border-blue-400/60 rounded-xl p-0.5 shadow-sm">
               <button
                 onClick={() => setViewMode('fotmob')}
                 className={`px-3 py-1 text-xs font-black rounded-lg transition-all cursor-pointer ${
                   viewMode === 'fotmob'
-                    ? 'bg-[#170036] text-[#00DF81] shadow-sm'
+                    ? 'bg-[#0A0A0F] text-[#CCFF00] shadow-sm'
                     : 'text-slate-700 hover:text-slate-950 font-bold'
                 }`}
               >
@@ -294,7 +294,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
                 onClick={() => setViewMode('bracket')}
                 className={`px-3 py-1 text-xs font-black rounded-lg transition-all cursor-pointer ${
                   viewMode === 'bracket'
-                    ? 'bg-[#170036] text-[#00DF81] shadow-sm'
+                    ? 'bg-[#0A0A0F] text-[#CCFF00] shadow-sm'
                     : 'text-slate-700 hover:text-slate-950 font-bold'
                 }`}
               >
@@ -304,7 +304,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
                 onClick={() => setViewMode('list')}
                 className={`px-3 py-1 text-xs font-black rounded-lg transition-all cursor-pointer ${
                   viewMode === 'list'
-                    ? 'bg-[#170036] text-[#00DF81] shadow-sm'
+                    ? 'bg-[#0A0A0F] text-[#CCFF00] shadow-sm'
                     : 'text-slate-700 hover:text-slate-950 font-bold'
                 }`}
               >
@@ -315,7 +315,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
         </div>
 
         {/* FotMob Sub-Navigation Tabs */}
-        <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto border-b border-emerald-400/40 pb-px scrollbar-none text-xs sm:text-sm font-bold">
+        <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto border-b border-slate-900/20 pb-px scrollbar-none text-xs sm:text-sm font-bold">
           <button
             onClick={() => onNavigateTab && onNavigateTab('standings')}
             className="px-4 py-2 text-slate-800 hover:text-slate-950 transition-colors cursor-pointer border-b-2 border-transparent"
@@ -324,10 +324,10 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
           </button>
           <button
             onClick={() => setViewMode('fotmob')}
-            className="px-4 py-2 text-[#170036] font-black border-b-2 border-[#170036] flex items-center gap-1.5"
+            className="px-4 py-2 text-[#0A0A0F] font-black border-b-2 border-[#0A0A0F] flex items-center gap-1.5"
           >
             <span>Knockout</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#170036] animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#0A0A0F] animate-pulse" />
           </button>
           <button
             onClick={() => onNavigateTab && onNavigateTab('matches')}
@@ -346,7 +346,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
 
       {/* 2. MAIN KNOCKOUT DISPLAY */}
       {viewMode === 'fotmob' && (
-        <div className="relative py-6 px-2 sm:px-6 rounded-3xl bg-white border border-emerald-300/80 shadow-2xl overflow-x-auto text-slate-900">
+        <div className="relative py-6 px-2 sm:px-6 rounded-3xl bg-white border border-blue-300/80 shadow-2xl overflow-x-auto text-slate-900">
           {/* Subtle dark stadium background grid */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b0a_1px,transparent_1px),linear-gradient(to_bottom,#1e293b0a_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
 
@@ -467,7 +467,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
                 {/* Cup Trophy Icon */}
                 <div className="relative mb-2">
                   <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-600 p-0.5 shadow-xl shadow-amber-500/30 flex items-center justify-center">
-                    <div className="w-full h-full bg-[#170036] rounded-2xl flex items-center justify-center relative overflow-hidden">
+                    <div className="w-full h-full bg-[#0A0A0F] rounded-2xl flex items-center justify-center relative overflow-hidden">
                       <div className="absolute inset-0 bg-amber-500/10 animate-pulse" />
                       <Trophy className="w-9 h-9 sm:w-11 sm:h-11 text-yellow-300 drop-shadow-md" />
                     </div>
@@ -481,7 +481,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
                 </div>
 
                 {/* Champion Name */}
-                <div className="font-sans text-base sm:text-lg font-bold text-[#170036] tracking-tight line-clamp-1">
+                <div className="font-sans text-base sm:text-lg font-bold text-[#0A0A0F] tracking-tight line-clamp-1">
                   {championTeam ? pairLabel(championTeam) : 'TBD'}
                 </div>
 

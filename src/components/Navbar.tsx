@@ -7,6 +7,7 @@ import {
   Radio,
   Trophy,
   Calendar,
+  Swords,
   Users,
   Layers,
   Zap,
@@ -23,7 +24,6 @@ export type NavTab = 'results' | 'courts' | 'standings' | 'knockout' | 'matches'
 interface NavbarProps {
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
-  liveMatchesCount: number;
   teams?: Team[];
   matches?: EnrichedMatch[];
   courts?: Court[];
@@ -33,7 +33,6 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
-  liveMatchesCount,
   teams = [],
   matches = [],
   courts = [],
@@ -97,33 +96,43 @@ export const Navbar: React.FC<NavbarProps> = ({
     setDrawerOpen(false);
   };
 
+  // Live tournament ticker (WTA-style): just the brand + LIVE NOW, repeating.
+  const tickerItems: { label: string; live?: boolean }[] = [
+    { label: 'CPA PADEL' },
+    { label: 'LIVE NOW', live: true },
+  ];
+
   return (
     <header className="w-full relative z-40">
-      {/* 1. TOP WTA-STYLE CANOPY CANVAS
+      {/* 1. TOP CANOPY CANVAS
            Transparent so the document gradient runs straight through it
-           (the gradient starts on this same emerald at the top). */}
+           (the blue gradient starts at the top of the page). */}
       <div className="bg-transparent text-slate-950 pt-2 pb-5 sm:pb-6">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6">
           
-          {/* A. Ticker Header Line */}
-          <div className="overflow-hidden whitespace-nowrap mb-2 px-2 flex items-center justify-between text-[11px] sm:text-xs font-mono font-bold tracking-tight uppercase text-slate-900">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <span className="font-extrabold truncate">CPA PADEL TOUR 2026</span>
-              <span className="opacity-60">•</span>
-              <span className="hidden sm:inline opacity-90">CPA PADEL FINALS</span>
-              <span className="hidden sm:inline opacity-60">•</span>
-              <span className="hidden md:inline text-slate-800">OFFICIAL LIVE SCORING</span>
-            </div>
-
-            <div className="hidden sm:flex items-center gap-2 text-[10px] font-display font-bold tracking-widest text-slate-900 shrink-0">
-              <span className="italic">CPA</span>
-              <span>|</span>
-              <span className="tracking-wider">1969 padel</span>
+          {/* A. Live Tournament Ticker — WTA-style: edge-faded, dot-separated
+               marquee (10 copies so the -50% loop always covers the viewport),
+               with vertical breathing room above the nav bar like the real
+               WTA header. */}
+          <div className="mb-3 sm:mb-4 ticker-fade overflow-hidden">
+            <div className="py-1 flex items-center whitespace-nowrap animate-ticker will-change-transform">
+              {Array.from({ length: 10 }).map((_, copy) => (
+                <div key={copy} className="flex items-center shrink-0" aria-hidden={copy > 0}>
+                  {tickerItems.map((item, i) => (
+                    <span key={i} className="flex items-center pr-4 sm:pr-6">
+                      <span className="mr-2 sm:mr-2.5 w-1.5 h-1.5 rounded-full bg-white/60" />
+                      <span className="text-xs sm:text-[13px] font-mono font-medium uppercase tracking-[0.02em] text-white/90">
+                        {item.label}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* B. Iconic Floating White Capsule Navigation Bar (Matching Screenshot) */}
-          <div className="relative bg-white rounded-full sm:rounded-3xl shadow-xl px-3 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between border border-emerald-400/40 select-none">
+          {/* B. Floating White Navigation Bar — rectangle with round corners (NOT a pill) */}
+          <div className="relative bg-white h-18 sm:h-20 lg:h-24 rounded-[1.6rem] sm:rounded-[2.4rem] shadow-xl px-3 sm:px-6 flex items-center justify-between border border-blue-400/40 select-none">
             {/* Left Controls: Menu (Hamburger) & Search */}
             <div className="flex items-center gap-1 sm:gap-2">
               <button
@@ -158,7 +167,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <img
                 src="/cpa%20logo%20final.svg"
                 alt="CPA Padel"
-                className="h-9 sm:h-10 w-auto select-none transition-transform group-hover:scale-105 duration-150"
+                className="h-10 sm:h-12 lg:h-14 w-auto select-none transition-transform group-hover:scale-105 duration-150"
               />
             </div>
 
@@ -174,7 +183,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <Bell className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
                   {/* Vibrant emerald circular badge matching screenshot */}
-                  <span className="absolute top-1 right-0.5 min-w-4 h-4 sm:min-w-5 sm:h-5 px-1 bg-[#00DF81] text-slate-950 font-black text-[10px] sm:text-[11px] rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                  <span className="absolute top-1 right-0.5 min-w-4 h-4 sm:min-w-5 sm:h-5 px-1 bg-[#CCFF00] text-slate-950 font-black text-[10px] sm:text-[11px] rounded-full flex items-center justify-center border-2 border-white shadow-sm">
                     17
                   </span>
                 </button>
@@ -184,10 +193,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-slate-950 text-slate-100 rounded-2xl shadow-2xl border border-slate-800 p-3 z-50 animate-in fade-in zoom-in-95 duration-150">
                     <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 px-2">
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-[#00DF81]" />
+                        <span className="w-2 h-2 rounded-full bg-[#CCFF00]" />
                         <span className="font-display font-bold text-sm text-white">Live Tour Alerts</span>
                       </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-[#00DF81] font-bold">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/20 text-[#CCFF00] font-bold">
                         17 Updates
                       </span>
                     </div>
@@ -210,13 +219,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <div className="pt-2 mt-2 border-t border-slate-800 text-center">
                       <button
                         onClick={() => setNotificationsOpen(false)}
-                        className="text-[11px] font-bold text-[#00DF81] hover:underline"
+                        className="text-[11px] font-bold text-[#CCFF00] hover:underline"
                       >
                         Close Alerts
                       </button>
                     </div>
                   </div>
                 )}
+
               </div>
             </div>
           </div>
@@ -231,10 +241,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="group flex flex-col items-center cursor-pointer select-none"
               >
                 <div
-                  className={`w-18 h-18 sm:w-20 sm:h-20 rounded-2xl p-2 bg-[#170036] border-2 transition-all duration-200 flex flex-col justify-between shadow-lg ${
+                  className={`w-18 h-18 sm:w-20 sm:h-20 rounded-2xl p-2 bg-[#0A0A0F] border-2 transition-all duration-200 flex flex-col justify-between shadow-lg ${
                     activeTab === 'results'
                       ? 'border-yellow-300 scale-105 shadow-yellow-400/20'
-                      : 'border-purple-900/50 hover:border-purple-500 hover:scale-102'
+                      : 'border-zinc-700/50 hover:border-blue-500 hover:scale-102'
                   }`}
                 >
                   {/* Neon Ball Icon & Top Score */}
@@ -264,32 +274,42 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
 
-              {/* Widget 2: RANKINGS / STANDINGS (Mint card with CPA RANKINGS text) */}
+              {/* Widget 2: RANKINGS / STANDINGS (Mint card with leaderboard icon & CPA RANKINGS text) */}
               <div
                 onClick={() => handleSelectNav('standings')}
                 className="group flex flex-col items-center cursor-pointer select-none"
               >
                 <div
-                  className={`w-18 h-18 sm:w-20 sm:h-20 rounded-2xl p-2 bg-gradient-to-br from-emerald-100 to-teal-200 border-2 transition-all duration-200 flex flex-col items-center justify-center shadow-lg relative overflow-hidden text-center ${
+                  className={`w-18 h-18 sm:w-20 sm:h-20 rounded-2xl p-2 bg-gradient-to-br from-blue-100 to-sky-200 border-2 transition-all duration-200 flex flex-col items-center justify-center shadow-lg relative overflow-hidden text-center ${
                     activeTab === 'standings'
                       ? 'border-slate-900 scale-105'
-                      : 'border-emerald-300/80 hover:border-emerald-500 hover:scale-102'
+                      : 'border-blue-300/80 hover:border-blue-500 hover:scale-102'
                   }`}
                 >
-                  <div className="absolute -right-2 -bottom-2 opacity-15">
+                  <div className="absolute -right-2 -bottom-2 opacity-10">
                     <Trophy className="w-12 h-12 text-slate-950" />
                   </div>
-                  <span className="text-[9px] font-mono font-black uppercase text-emerald-800 tracking-wider">
+                  {/* Leaderboard mini-icon: three ranked rows */}
+                  <div className="mt-0.5 mb-1 flex flex-col items-center gap-[3px] relative">
+                    <div className="flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-[4px] bg-[#CCFF00] border border-slate-900/70" />
+                      <span className="w-7 h-1.5 rounded-full bg-slate-900/80" />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-[4px] bg-slate-900/25" />
+                      <span className="w-5 h-1.5 rounded-full bg-slate-900/55" />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-[4px] bg-slate-900/25" />
+                      <span className="w-3.5 h-1.5 rounded-full bg-slate-900/40" />
+                    </div>
+                  </div>
+                  <span className="relative text-[9px] font-mono font-black uppercase text-blue-800 tracking-wider leading-none">
                     CPA
                   </span>
-                  <span className="text-[10px] sm:text-[11px] font-display font-bold uppercase text-slate-950 leading-tight">
+                  <span className="relative text-[10px] sm:text-[11px] font-display font-bold uppercase text-slate-950 leading-tight">
                     RANKINGS
                   </span>
-                  <div className="mt-1 flex items-center gap-0.5">
-                    <span className="w-1 h-3 bg-emerald-600 rounded-full" />
-                    <span className="w-1 h-4 bg-emerald-800 rounded-full" />
-                    <span className="w-1 h-2 bg-emerald-500 rounded-full" />
-                  </div>
                 </div>
 
                 <div className="mt-1.5 text-[11px] font-mono font-extrabold uppercase tracking-wide text-slate-950">
@@ -297,16 +317,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
 
-              {/* Widget 3: EXCLUSIVES / LIVE COURTS (Square action image with lock icon) */}
+              {/* Widget 3: LIVE COURTS (Square action image with live-broadcast badge) */}
               <div
                 onClick={() => handleSelectNav('courts')}
                 className="group flex flex-col items-center cursor-pointer select-none"
               >
                 <div
-                  className={`w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-slate-900 border-2 transition-all duration-200 shadow-lg relative overflow-hidden flex items-center justify-center ${
+                  className={`w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-slate-900 border-2 transition-all duration-200 shadow-lg relative overflow-hidden ${
                     activeTab === 'courts'
                       ? 'border-slate-900 scale-105'
-                      : 'border-emerald-300/80 hover:border-emerald-500 hover:scale-102'
+                      : 'border-blue-300/80 hover:border-blue-500 hover:scale-102'
                   }`}
                 >
                   <img
@@ -314,9 +334,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                     alt="Padel Court Action"
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
-                  <div className="absolute inset-0 bg-slate-950/30 backdrop-blur-[1px] flex items-center justify-center">
-                    <div className="w-7 h-7 rounded-full bg-[#00DF81] text-slate-950 flex items-center justify-center shadow-md">
-                      <Radio className="w-3.5 h-3.5 animate-pulse" />
+                  {/* Scrim + live broadcast badge */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-slate-950/20" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="relative flex items-center gap-1 px-2 py-1 rounded-full bg-[#CCFF00] shadow-md">
+                      <span className="relative flex w-2 h-2">
+                        <span className="absolute inline-flex w-full h-full rounded-full bg-slate-950 opacity-60 animate-ping" />
+                        <span className="relative inline-flex w-2 h-2 rounded-full bg-slate-950" />
+                      </span>
+                      <Radio className="w-3 h-3 text-slate-950" />
                     </div>
                   </div>
                 </div>
@@ -326,7 +352,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
 
-              {/* Widget 4: KNOCKOUTS (Violet card with CPA KNOCKOUTS) */}
+              {/* Widget 4: KNOCKOUTS (White card with crossed-swords bracket icon & CPA KNOCKOUTS) */}
               <div
                 onClick={() => handleSelectNav('knockout')}
                 className="group flex flex-col items-center cursor-pointer select-none"
@@ -334,17 +360,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div
                   className={`w-18 h-18 sm:w-20 sm:h-20 rounded-2xl p-2 bg-white border-2 transition-all duration-200 flex flex-col items-center justify-center shadow-lg relative overflow-hidden text-center ${
                     activeTab === 'knockout'
-                      ? 'border-purple-900 scale-105'
-                      : 'border-purple-200 hover:border-purple-500 hover:scale-102'
+                      ? 'border-zinc-700 scale-105'
+                      : 'border-zinc-300 hover:border-blue-500 hover:scale-102'
                   }`}
                 >
-                  <div className="text-purple-900 mb-0.5">
-                    <Trophy className="w-5 h-5 mx-auto" />
+                  {/* Bracket corner ticks (single-elimination tree hint) */}
+                  <span className="absolute top-1.5 left-1.5 w-2 h-2 border-t-[1.5px] border-l-[1.5px] border-slate-400/70 rounded-tl-sm" />
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 border-t-[1.5px] border-r-[1.5px] border-slate-400/70 rounded-tr-sm" />
+                  <span className="absolute bottom-1.5 left-1.5 w-2 h-2 border-b-[1.5px] border-l-[1.5px] border-slate-400/70 rounded-bl-sm" />
+                  <span className="absolute bottom-1.5 right-1.5 w-2 h-2 border-b-[1.5px] border-r-[1.5px] border-slate-400/70 rounded-br-sm" />
+                  <div className="w-9 h-9 rounded-xl bg-[#0A0A0F] flex items-center justify-center mb-1 shadow-sm">
+                    <Swords className="w-5 h-5 text-[#CCFF00]" />
                   </div>
-                  <span className="text-[10px] sm:text-[11px] font-display font-bold uppercase text-[#170036] leading-none">
+                  <span className="relative text-[10px] sm:text-[11px] font-display font-bold uppercase text-[#0A0A0F] leading-none">
                     CPA
                   </span>
-                  <span className="text-[9px] sm:text-[10px] font-display font-bold uppercase text-purple-700 leading-none">
+                  <span className="relative text-[9px] sm:text-[10px] font-display font-bold uppercase text-blue-700 leading-none">
                     KNOCKOUTS
                   </span>
                 </div>
@@ -354,7 +385,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
 
-              {/* Widget 5: FIXTURES (Matches) */}
+              {/* Widget 5: FIXTURES (Dark card with match-day calendar icon) */}
               <div
                 onClick={() => handleSelectNav('matches')}
                 className="group flex flex-col items-center cursor-pointer select-none"
@@ -362,12 +393,30 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div
                   className={`w-18 h-18 sm:w-20 sm:h-20 rounded-2xl p-2 bg-[#0e1628] border-2 transition-all duration-200 flex flex-col items-center justify-center shadow-lg text-center ${
                     activeTab === 'matches'
-                      ? 'border-indigo-400 scale-105'
-                      : 'border-slate-800 hover:border-indigo-400 hover:scale-102'
+                      ? 'border-blue-400 scale-105'
+                      : 'border-slate-800 hover:border-blue-400 hover:scale-102'
                   }`}
                 >
-                  <Calendar className="w-5 h-5 text-indigo-400 mb-1" />
-                  <span className="text-[10px] font-mono font-black uppercase text-indigo-300 leading-none">
+                  {/* Match-day calendar mini-icon */}
+                  <div className="w-9 h-9 rounded-lg border-[2px] border-white/80 bg-white/5 flex flex-col overflow-hidden mb-1">
+                    {/* Calendar binder rings */}
+                    <div className="flex items-center justify-between px-1 pt-[3px] pb-[2px] border-b-[2px] border-white/80 bg-[#CCFF00]">
+                      <span className="w-[2px] h-[5px] rounded-full bg-[#0e1628]" />
+                      <span className="w-[2px] h-[5px] rounded-full bg-[#0e1628]" />
+                    </div>
+                    {/* Grid with one marked match-day */}
+                    <div className="flex-1 grid grid-cols-3 gap-[2px] p-[3px] items-center">
+                      {[0, 1, 2, 3, 4, 5].map((cell) => (
+                        <span
+                          key={cell}
+                          className={`w-[5px] h-[5px] rounded-[1.5px] ${
+                            cell === 4 ? 'bg-[#CCFF00] shadow-[0_0_5px_#CCFF00]' : 'bg-white/30'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono font-black uppercase text-blue-300 leading-none">
                     ALL
                   </span>
                   <span className="text-[9px] font-mono uppercase text-slate-400">
@@ -386,14 +435,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="group flex flex-col items-center cursor-pointer select-none"
               >
                 <div
-                  className={`w-18 h-18 sm:w-20 sm:h-20 rounded-2xl p-2 bg-gradient-to-br from-slate-900 to-teal-950 border-2 transition-all duration-200 flex flex-col items-center justify-center shadow-lg text-center ${
+                  className={`w-18 h-18 sm:w-20 sm:h-20 rounded-2xl p-2 bg-gradient-to-br from-slate-900 to-sky-950 border-2 transition-all duration-200 flex flex-col items-center justify-center shadow-lg text-center ${
                     activeTab === 'teams'
-                      ? 'border-teal-400 scale-105'
-                      : 'border-slate-800 hover:border-teal-400 hover:scale-102'
+                      ? 'border-sky-400 scale-105'
+                      : 'border-slate-800 hover:border-sky-400 hover:scale-102'
                   }`}
                 >
-                  <Users className="w-5 h-5 text-teal-400 mb-1" />
-                  <span className="text-[10px] font-mono font-black uppercase text-teal-300 leading-none">
+                  {/* Squad formation mini-icon: 2x2 player dots */}
+                  <div className="w-9 h-9 rounded-xl border-[2px] border-sky-400/70 bg-sky-500/10 grid grid-cols-2 gap-[3px] p-[4px] mb-1">
+                    <span className="rounded-full bg-[#CCFF00] shadow-[0_0_5px_#CCFF00]" />
+                    <span className="rounded-full bg-white/80" />
+                    <span className="rounded-full bg-white/80" />
+                    <span className="rounded-full bg-[#CCFF00] shadow-[0_0_5px_#CCFF00]" />
+                  </div>
+                  <span className="text-[10px] font-mono font-black uppercase text-sky-300 leading-none">
                     20 TEAMS
                   </span>
                 </div>
@@ -403,28 +458,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
 
-            </div>
-          </div>
-
-          {/* D. Tour Title & Status Banner Bar */}
-          <div className="mt-4 pt-3.5 border-t border-emerald-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 pb-1">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <span className="text-xl sm:text-2xl font-display font-bold italic tracking-tight text-[#170036] uppercase leading-none">
-                CPA PADEL TOUR
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-[#170036] text-white font-mono text-[10px] font-black uppercase tracking-wider">
-                1969 INDOOR PADEL
-              </span>
-              <span className="hidden md:inline-block text-xs font-mono font-bold text-slate-900 opacity-80">
-                • 5 Groups • 20 Teams • 5 Arenas
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#170036] text-[#00DF81] text-xs font-mono font-black tracking-wide shadow-sm">
-                <span className="w-2 h-2 rounded-full bg-[#00DF81] animate-ping" />
-                {liveMatchesCount > 0 ? `${liveMatchesCount} MATCHES LIVE` : 'ALL COURTS ACTIVE'}
-              </span>
             </div>
           </div>
 
@@ -438,7 +471,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Search Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2 flex-1 mr-2">
-                <Search className="w-5 h-5 text-emerald-400 shrink-0" />
+                <Search className="w-5 h-5 text-blue-400 shrink-0" />
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -512,7 +545,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                             className="p-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800/80 flex items-center justify-between cursor-pointer transition-colors"
                           >
                             <div>
-                              <div className="text-xs font-mono text-emerald-400 font-bold">
+                              <div className="text-xs font-mono text-blue-400 font-bold">
                                 Match #{match.matchNumber} · {match.scheduledTime}
                               </div>
                               <div className="text-sm font-bold text-white">
@@ -557,12 +590,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Drawer Brand */}
               <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-xl bg-[#00DF81] text-slate-950 font-bold flex items-center justify-center font-display italic text-lg shadow-md">
+                  <div className="w-9 h-9 rounded-xl bg-[#CCFF00] text-slate-950 font-bold flex items-center justify-center font-display italic text-lg shadow-md">
                     CPA
                   </div>
                   <div>
                     <div className="text-base font-display font-bold text-white">CPA Padel Tour</div>
-                    <div className="text-[10px] font-mono text-[#00DF81]">2026 World Season</div>
+                    <div className="text-[10px] font-mono text-[#CCFF00]">2026 World Season</div>
                   </div>
                 </div>
                 <button
@@ -576,19 +609,19 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Navigation Links */}
               <div className="space-y-1">
                 {[
-                  { id: 'results', label: 'Live Results & Scores', icon: <Zap className="w-4 h-4 text-emerald-400" /> },
+                  { id: 'results', label: 'Live Results & Scores', icon: <Zap className="w-4 h-4 text-blue-400" /> },
                   { id: 'courts', label: 'Live Courts (5 Arenas)', icon: <Radio className="w-4 h-4 text-sky-400" /> },
                   { id: 'standings', label: 'Tour Standings & Rankings', icon: <Trophy className="w-4 h-4 text-amber-400" /> },
                   { id: 'knockout', label: 'Knockout Bracket & Finals', icon: <Layers className="w-4 h-4 text-rose-400" /> },
-                  { id: 'matches', label: 'Match Schedule & Fixtures', icon: <Calendar className="w-4 h-4 text-indigo-400" /> },
-                  { id: 'teams', label: 'Teams & Player Directory', icon: <Users className="w-4 h-4 text-teal-400" /> },
+                  { id: 'matches', label: 'Match Schedule & Fixtures', icon: <Calendar className="w-4 h-4 text-blue-400" /> },
+                  { id: 'teams', label: 'Teams & Player Directory', icon: <Users className="w-4 h-4 text-sky-400" /> },
                 ].map((item) => (
                   <button
                     key={item.id}
                     onClick={() => handleSelectNav(item.id as NavTab)}
                     className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${
                       activeTab === item.id
-                        ? 'bg-slate-900 text-[#00DF81] border border-slate-800'
+                        ? 'bg-slate-900 text-[#CCFF00] border border-slate-800'
                         : 'text-slate-300 hover:bg-slate-900/60 hover:text-white'
                     }`}
                   >
@@ -601,7 +634,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Live Group Draw — separate lazy-loaded presentation route */}
               <a
                 href="/draw"
-                className="mt-4 flex items-center gap-3 rounded-xl border border-[#00DF81]/40 bg-[#00DF81]/10 px-3.5 py-2.5 text-xs font-bold text-[#00DF81] transition-colors hover:bg-[#00DF81]/20 sm:text-sm"
+                className="mt-4 flex items-center gap-3 rounded-xl border border-[#CCFF00]/40 bg-[#CCFF00]/10 px-3.5 py-2.5 text-xs font-bold text-[#CCFF00] transition-colors hover:bg-[#CCFF00]/20 sm:text-sm"
               >
                 <Sparkles className="w-4 h-4" />
                 <span>Live Group Draw</span>

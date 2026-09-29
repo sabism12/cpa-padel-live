@@ -537,13 +537,13 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
   return (
     <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in duration-300">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-emerald-400/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-white/25">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#170036] text-[#00DF81] text-xs font-black uppercase tracking-wider mb-2 shadow-sm">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0A0A0F] text-[#CCFF00] text-xs font-black uppercase tracking-wider mb-2 shadow-sm">
             <ClipboardEdit className="w-3.5 h-3.5" />
             Scorekeeper Terminal • Court Official
           </div>
-          <h1 className="text-2xl sm:text-3xl font-display font-bold text-[#170036] uppercase tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-[#0A0A0F] uppercase tracking-tight">
             Live Point-by-Point Scorekeeper
           </h1>
           <p className="text-xs font-mono font-bold text-slate-800 mt-1">
@@ -553,16 +553,16 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
 
         {/* Sync & Role indicator */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white border border-emerald-300 text-xs shadow-sm">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white border border-blue-300 text-xs shadow-sm">
+            <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
             <span className="font-bold text-slate-800">{session.name}</span>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white border border-emerald-300 text-xs shadow-sm">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white border border-blue-300 text-xs shadow-sm">
             {syncStatus === 'synced' && (
               <>
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span className="text-emerald-700 font-bold">Live Synced</span>
+                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                <span className="text-blue-700 font-bold">Live Synced</span>
               </>
             )}
             {syncStatus === 'saving' && (
@@ -673,18 +673,18 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
               }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-black text-xs uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer shadow-sm ${
                 isSelected
-                  ? 'bg-[#170036] text-[#00DF81] shadow-lg ring-2 ring-emerald-300'
-                  : 'bg-white hover:bg-slate-50 text-slate-800 border border-emerald-300'
+                  ? 'bg-[#0A0A0F] text-[#CCFF00] shadow-lg ring-2 ring-blue-300'
+                  : 'bg-white hover:bg-slate-50 text-slate-800 border border-blue-300'
               }`}
             >
               {courtHasLive && (
-                <span className="w-2 h-2 rounded-full bg-[#00DF81] animate-ping" />
+                <span className="w-2 h-2 rounded-full bg-[#CCFF00] animate-ping" />
               )}
               <span>{court.name}</span>
               {courtStageMatch && (
                 <span
                   className={`text-[9px] font-mono normal-case tracking-wide ${
-                    isSelected ? 'text-emerald-300/80' : 'text-slate-500'
+                    isSelected ? 'text-blue-300/80' : 'text-slate-500'
                   }`}
                 >
                   · {stageLabel(courtStageMatch)}
@@ -762,7 +762,7 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
                         isLive
                           ? 'bg-rose-500 text-white animate-pulse'
                           : isCompleted
-                          ? 'bg-emerald-500/20 text-emerald-400'
+                          ? 'bg-blue-500/20 text-blue-400'
                           : 'bg-slate-800 text-slate-400'
                       }`}
                     >
@@ -844,7 +844,7 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider ${
                   isKnockoutMatch(currentMatch)
                     ? 'bg-amber-400 text-slate-950'
-                    : 'bg-[#170036] text-[#00DF81]'
+                    : 'bg-[#0A0A0F] text-[#CCFF00]'
                 }`}
               >
                 <Trophy className="w-3 h-3" />
@@ -911,7 +911,7 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
           )}
 
           {successMessage && (
-            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+            <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
               <span>{successMessage}</span>
             </div>
@@ -981,14 +981,14 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
               {padelState.isMatchOver && currentMatch.status !== 'completed' && (
                 <div
                   id="banner-match-won"
-                  className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-emerald-950/90 via-slate-900 to-lime-950/90 border-2 border-emerald-400 text-center space-y-4 shadow-2xl animate-in zoom-in-95 duration-200"
+                  className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-blue-950/90 via-slate-900 to-lime-950/90 border-2 border-blue-400 text-center space-y-4 shadow-2xl animate-in zoom-in-95 duration-200"
                 >
-                  <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto shadow-inner border border-emerald-500/30">
+                  <div className="w-16 h-16 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto shadow-inner border border-blue-500/30">
                     <Trophy className="w-9 h-9" />
                   </div>
 
                   <div>
-                    <span className="text-xs font-black uppercase tracking-widest text-emerald-400 block mb-1">
+                    <span className="text-xs font-black uppercase tracking-widest text-blue-400 block mb-1">
                       🏆 MATCH COMPLETE
                     </span>
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
@@ -1048,12 +1048,12 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
 
               {/* Match Submitted & Finalized Card */}
               {currentMatch.status === 'completed' && (
-                <div className="p-6 sm:p-8 rounded-3xl bg-emerald-950/40 border-2 border-emerald-500/40 text-center space-y-4 shadow-xl">
-                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/30">
+                <div className="p-6 sm:p-8 rounded-3xl bg-blue-950/40 border-2 border-blue-500/40 text-center space-y-4 shadow-xl">
+                  <div className="w-14 h-14 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto border border-blue-500/30">
                     <CheckCircle2 className="w-8 h-8" />
                   </div>
                   <div>
-                    <span className="text-xs font-black uppercase tracking-widest text-emerald-400 block mb-1">
+                    <span className="text-xs font-black uppercase tracking-widest text-blue-400 block mb-1">
                       MATCH RESULT SUBMITTED & CONFIRMED
                     </span>
                     <div className="font-sans text-2xl sm:text-3xl font-bold text-white mt-1">
@@ -1424,7 +1424,7 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
                                     isLive
                                       ? 'bg-rose-500 text-white animate-pulse'
                                       : isCompleted
-                                      ? 'bg-emerald-500/20 text-emerald-400'
+                                      ? 'bg-blue-500/20 text-blue-400'
                                       : 'bg-slate-800 text-slate-400'
                                   }`}
                                 >

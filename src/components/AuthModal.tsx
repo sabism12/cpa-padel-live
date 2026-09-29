@@ -102,7 +102,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }}
             className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
               role === 'admin'
-                ? 'bg-purple-500 text-white shadow-sm'
+                ? 'bg-blue-500 text-white shadow-sm'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -162,7 +162,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             className={`w-full mt-4 py-2.5 px-4 rounded-xl font-bold text-sm tracking-wide transition-all shadow-lg flex items-center justify-center gap-2 ${
               role === 'scorekeeper'
                 ? 'bg-lime-400 hover:bg-lime-300 text-slate-950 shadow-lime-500/20'
-                : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/20'
+                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20'
             }`}
           >
             {loading ? (

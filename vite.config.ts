@@ -20,7 +20,7 @@ export default defineConfig(() => {
           name: 'CPA Padel Tournament',
           short_name: 'CPA Padel',
           description: 'Live scoring, courts, standings and the live group draw for CPA Padel Tournament.',
-          theme_color: '#170036',
+          theme_color: '#0A0A0F',
           background_color: '#070A12',
           display: 'standalone',
           start_url: '/',

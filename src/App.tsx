@@ -285,8 +285,6 @@ export default function App() {
     setActiveTab('score');
   };
 
-  const liveCount = summary?.liveMatches ?? 0;
-
   // -----------------------------------------------------------------
   // Staff portal (scorekeeper / admin) - separate, unlinked entry point
   // -----------------------------------------------------------------
@@ -315,12 +313,11 @@ export default function App() {
   // Public spectator site
   // -----------------------------------------------------------------
   return (
-    <div className="min-h-screen flex flex-col bg-transparent text-slate-950 selection:bg-[#170036] selection:text-[#00DF81]">
+    <div className="min-h-screen flex flex-col bg-transparent text-slate-950 selection:bg-[#0A0A0F] selection:text-[#CCFF00]">
       {/* Top Navbar in WTA Tour Style */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        liveMatchesCount={liveCount}
         teams={teams}
         matches={matches}
         courts={courts}
@@ -330,9 +327,9 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
         {isSyncing && matches.length === 0 && (
-          <div className="mb-4 px-4 py-2.5 rounded-2xl bg-white/90 backdrop-blur-md border border-emerald-400 text-xs text-slate-950 shadow-md flex items-center justify-between">
+          <div className="mb-4 px-4 py-2.5 rounded-2xl bg-white/90 backdrop-blur-md border border-blue-400 text-xs text-slate-950 shadow-md flex items-center justify-between">
             <span className="flex items-center gap-2 font-bold">
-              <span className="w-2 h-2 rounded-full bg-[#170036] animate-ping" />
+              <span className="w-2 h-2 rounded-full bg-[#0A0A0F] animate-ping" />
               Connecting to live tournament courts...
             </span>
           </div>
@@ -349,6 +346,8 @@ export default function App() {
                 settings={settings}
                 onSelectTeam={handleSelectTeam}
                 onGoToCourts={() => setActiveTab('courts')}
+                onGoToMatches={() => setActiveTab('matches')}
+                onGoToStandings={() => setActiveTab('standings')}
               />
             )}
 
@@ -408,11 +407,11 @@ export default function App() {
       </main>
 
       {/* Global Live Synchronization Footer Bar */}
-      <footer className="border-t border-emerald-400/50 bg-transparent py-5 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono font-bold text-slate-900">
+      <footer className="border-t border-white/30 bg-transparent py-5 px-4 sm:px-6">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono font-bold text-white/90">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#170036] animate-pulse" />
-            <span className="font-extrabold text-[#170036]">Official Live Scoring System Active</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#CCFF00] animate-pulse" />
+            <span className="font-extrabold text-white">Official Live Scoring System Active</span>
             <span>&bull;</span>
             <span className="opacity-80">Synced: {lastSynced.toLocaleTimeString()}</span>
           </div>

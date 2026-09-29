@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, useScroll, useTransform } from 'motion/react';
 import {
   Activity,
   CheckCircle2,
@@ -7,7 +8,6 @@ import {
   Trophy,
   Calendar,
   ChevronRight,
-  Sparkles,
   ArrowUpRight,
   Flame,
 } from 'lucide-react';
@@ -26,6 +26,8 @@ interface LiveResultsViewProps {
   settings?: TournamentSettings;
   onSelectTeam: (teamId: string) => void;
   onGoToCourts: () => void;
+  onGoToMatches?: () => void;
+  onGoToStandings?: () => void;
 }
 
 export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
@@ -37,6 +39,8 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
   settings,
   onSelectTeam,
   onGoToCourts,
+  onGoToMatches,
+  onGoToStandings,
 }) => {
   const [selectedGroupId, setSelectedGroupId] = useState<string>(groups[0]?.id || 'group-a');
 
@@ -54,6 +58,51 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
 
   const perGroup = settings?.scoring.qualifiersPerGroup ?? 2;
   const wildcards = settings?.scoring.wildcardQualifiers ?? 0;
+
+  // Reference-style hero transition, in two phases:
+  //  1) the LIVE PADEL SCORES headline scrolls up at page speed until it
+  //     reaches the top of the viewport (no early animation);
+  //  2) it pins there, and the LIVE MATCHES card keeps rising over it —
+  //     while the card covers the text, it shrinks and fades out gradually.
+  // The pin point and cover distance are measured from the real layout, so
+  // they stay correct on any screen size or mid-page reload.
+  const pinRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [pinScroll, setPinScroll] = useState(0);
+  const [coverDistance, setCoverDistance] = useState(1);
+  useEffect(() => {
+    const measure = () => {
+      const pinEl = pinRef.current;
+      const cardEl = cardRef.current;
+      if (!pinEl || !cardEl) return;
+      const y = window.scrollY;
+      const pinTop = pinEl.getBoundingClientRect().top + y;
+      const cardTop = cardEl.getBoundingClientRect().top + y;
+      setPinScroll(Math.max(0, pinTop));
+      setCoverDistance(Math.max(1, cardTop - pinTop));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    // Re-measure once webfonts settle (they change the hero text height).
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      document.fonts.ready.then(measure).catch(() => undefined);
+    }
+    const t = window.setTimeout(measure, 600);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.clearTimeout(t);
+    };
+  }, []);
+
+  const { scrollY } = useScroll();
+  // Phase 1: hero rides the page normally (y = 0). Phase 2 (after the text
+  // has reached the top): keep it visually pinned by offsetting page scroll.
+  const heroY = useTransform(scrollY, (v) => Math.max(0, v - pinScroll));
+  // Covered depth of the pinned text, 0 -> 1 while the card rises over it.
+  const cover = useTransform(scrollY, (v) =>
+    Math.min(1, Math.max(0, (v - pinScroll) / coverDistance))
+  );
+  const heroOpacity = useTransform(cover, [0, 1], [1, 0]);
   const qualificationSummary =
     perGroup === 1
       ? 'Group winners'
@@ -76,84 +125,126 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
-      {/* 🔴 Top LIVE RESULTS Header & Real-time Metrics Banner (White Floating Card) */}
-      <div className="relative overflow-hidden rounded-3xl bg-white border border-emerald-300/80 p-6 sm:p-8 shadow-xl text-slate-900">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#170036] text-[#00DF81] text-xs font-black tracking-widest uppercase mb-3 shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-[#00DF81] animate-ping" />
-              <span className="w-2 h-2 rounded-full bg-[#00DF81] -ml-4" />
-              LIVE TOURNAMENT ACTION
-            </div>
-            <h1 className="text-2xl sm:text-4xl font-display font-bold text-[#170036] tracking-tight uppercase">
-              {settings?.name || 'CPA PADEL TOURNAMENT'}
-            </h1>
-            <p className="text-slate-600 text-xs sm:text-sm font-mono font-bold mt-1 flex items-center gap-2 flex-wrap">
-              <span>{settings?.location || 'Central Arena'}</span>
-              <span>•</span>
-              <span className="text-slate-500">
-                Last updated:{' '}
-                {summary?.lastUpdated
-                  ? new Date(summary.lastUpdated).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      second: '2-digit',
-                    })
-                  : 'Syncing...'}
+    <div className="space-y-5 sm:space-y-8 animate-in fade-in duration-300">
+      {/* LIVE PADEL SCORES hero. Phase 1: scrolls normally to the top. The
+           wrapper (pinRef) provides the layout anchor for the pin point. */}
+      <div ref={pinRef} className="relative pb-8 sm:pb-12">
+        <motion.section
+          id="section-live-scores-hero"
+          style={{ y: heroY, opacity: heroOpacity }}
+          className="relative z-0 text-center pt-4 sm:pt-6 px-2 will-change-transform pointer-events-none"
+        >
+        <h1 className="font-display font-bold uppercase tracking-tight text-[#0A0A0F] leading-[0.85] text-7xl sm:text-8xl md:text-9xl lg:text-[10rem]">
+          Live Padel
+          <span className="block">Scores</span>
+        </h1>
+        <p className="mt-4 sm:mt-6 text-base sm:text-lg lg:text-xl font-mono font-bold text-slate-800">
+          See live match scores from every CPA event.
+        </p>
+        </motion.section>
+      </div>
+
+      {/* 🔴 Live Matches card — normal flow at full scroll speed; once the
+           hero text is pinned this card rises OVER it (z-10 above it). */}
+      <div
+        ref={cardRef}
+        id="section-live-matches-card"
+        className="relative z-10 overflow-hidden rounded-3xl bg-white shadow-xl text-slate-900"
+      >
+        {/* 1. Card header: heading + two stacked entry points (rankings on
+               top of fixtures, mirroring the subnav hierarchy) */}
+        <div className="flex items-start justify-between gap-4 px-5 sm:px-7 pt-7 sm:pt-9 pb-6 sm:pb-8">
+          <h2 id="section-live-matches-title" className="font-display font-semibold text-[#0A0A0F] uppercase tracking-tight leading-[0.92] text-5xl sm:text-7xl">
+            Live
+            <span className="block">Matches</span>
+          </h2>
+
+          <div className="shrink-0 flex flex-col items-stretch gap-2.5 sm:gap-3">
+            <button
+              onClick={onGoToStandings ?? (() => {})}
+              className="inline-flex items-center justify-center gap-1.5 px-5 py-2 sm:py-2.5 rounded-[1.5rem] border border-slate-900/40 bg-white text-[#0A0A0F] text-[11px] sm:text-xs font-mono font-bold uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-colors cursor-pointer"
+            >
+              <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              Rankings
+            </button>
+
+            <button
+              onClick={onGoToMatches ?? onGoToCourts}
+              className="inline-flex items-center justify-center gap-1.5 px-5 py-2 sm:py-2.5 rounded-[1.5rem] border border-slate-900/40 bg-white text-[#0A0A0F] text-[11px] sm:text-xs font-mono font-bold uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-colors cursor-pointer"
+            >
+              <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              Fixtures
+            </button>
+          </div>
+        </div>
+
+        {/* 2. Full-width light band: tournament identity (like WTA's "WTA 125") */}
+        <div className="bg-blue-50 border-y border-blue-100 px-5 sm:px-7 py-6 sm:py-7 flex items-center justify-between gap-4">
+          <span className="text-3xl sm:text-5xl font-display font-semibold uppercase tracking-wide text-[#0A0A0F] leading-none">
+            {settings?.name || 'CPA PADEL TOURNAMENT'}
+          </span>
+          <span className="shrink-0 text-xs sm:text-sm font-mono font-bold uppercase tracking-widest text-blue-800/80">
+            Season 2026
+          </span>
+        </div>
+
+        {/* 3. Status bar — a full-bleed black strip stretching edge to edge,
+             flush with the band above (no gap) and the card's bottom edge,
+             so its corners follow the card's rounding: rectangle with
+             round corners, not a pill. */}
+        <div className="w-full flex items-center justify-between bg-[#0A0A0F] border-t border-zinc-800 px-5 sm:px-8 py-4 sm:py-5 shadow-lg">
+            {/* LIVE (clickable -> courts) */}
+            <button
+              onClick={onGoToCourts}
+              className="flex items-center gap-2 sm:gap-2.5 min-w-0 cursor-pointer group"
+            >
+              <span className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-[#CCFF00] animate-pulse shrink-0" />
+              <span className="text-[10px] sm:text-xs font-mono font-bold uppercase tracking-widest text-white/80 group-hover:text-white transition-colors">
+                Live
               </span>
-            </p>
-          </div>
-
-          {/* Quick Stats Grid */}
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 sm:w-auto w-full">
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-[#170036] border border-purple-900/60 text-center shadow-md">
-              <div className="flex items-center justify-center gap-1.5 text-[#00DF81] mb-1">
-                <Flame className="w-4 h-4 animate-pulse" />
-                <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Live</span>
-              </div>
-              <div className="text-2xl sm:text-3xl font-display font-black text-[#00DF81]">
+              <span className="text-xl sm:text-3xl font-display font-black text-[#CCFF00] leading-none">
                 {summary?.liveMatches ?? 0}
-              </div>
-            </div>
+              </span>
+            </button>
 
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-center shadow-sm">
-              <div className="flex items-center justify-center gap-1.5 text-emerald-700 mb-1">
-                <CheckCircle2 className="w-4 h-4" />
-                <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Done</span>
-              </div>
-              <div className="text-2xl sm:text-3xl font-display font-black text-emerald-800">
+            <span className="h-5 sm:h-7 w-px bg-white/15 shrink-0" aria-hidden="true" />
+
+            {/* DONE */}
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+              <CheckCircle2 className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-white/60 shrink-0" />
+              <span className="text-[10px] sm:text-xs font-mono font-bold uppercase tracking-widest text-white/80">
+                Done
+              </span>
+              <span className="text-xl sm:text-3xl font-display font-black text-white leading-none">
                 {summary?.completedMatches ?? 0}
-              </div>
+              </span>
             </div>
 
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-100 border border-slate-200 text-center shadow-sm">
-              <div className="flex items-center justify-center gap-1.5 text-slate-700 mb-1">
-                <Clock className="w-4 h-4" />
-                <span className="text-[11px] font-mono font-bold uppercase tracking-wider">Upcoming</span>
-              </div>
-              <div className="text-2xl sm:text-3xl font-display font-black text-slate-900">
+            <span className="h-5 sm:h-7 w-px bg-white/15 shrink-0" aria-hidden="true" />
+
+            {/* UPCOMING */}
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+              <Clock className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-white/60 shrink-0" />
+              <span className="text-[10px] sm:text-xs font-mono font-bold uppercase tracking-widest text-white/80">
+                Upcoming
+              </span>
+              <span className="text-xl sm:text-3xl font-display font-black text-white leading-none">
                 {summary?.upcomingMatches ?? 0}
-              </div>
+              </span>
             </div>
-          </div>
         </div>
       </div>
 
       {/* 21. Latest Results Section */}
       {latestResults.length > 0 && (
         <section id="section-latest-results">
-          <div className="flex items-center justify-between mb-3 px-1">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-[#170036]" />
-              <h2 className="text-xl sm:text-2xl font-display font-bold text-[#170036] uppercase tracking-tight">
-                Latest Match Results
-              </h2>
-            </div>
-            <span className="text-xs font-mono font-bold text-slate-800">Live official scoring</span>
+          <div className="flex items-center justify-between mb-3 sm:mb-3 px-1">
+            <h2 className="text-4xl sm:text-5xl font-display font-semibold text-[#0A0A0F] uppercase tracking-tight leading-[0.95]">
+              Latest Match Results
+            </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4">
             {latestResults.slice(0, 3).map((match) => {
               const g1 = match.padelState?.team1Games ?? match.team1Score ?? 0;
               const g2 = match.padelState?.team2Games ?? match.team2Score ?? 0;
@@ -163,60 +254,62 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                 <div
                   key={match.id}
                   id={`latest-result-${match.id}`}
-                  className="relative overflow-hidden rounded-3xl bg-white border border-emerald-300/80 p-5 hover:shadow-2xl transition-all shadow-lg group space-y-3 text-slate-900"
+                  className="relative overflow-hidden rounded-3xl bg-white border border-blue-300/80 p-3.5 sm:p-5 hover:shadow-2xl transition-all shadow-lg group space-y-2.5 sm:space-y-3 text-slate-900"
                 >
-                  <div className="flex items-center justify-between text-xs pb-2.5 border-b border-slate-100">
-                    <div className="flex items-center gap-1.5 font-bold text-[#170036]">
-                      <Trophy className="w-4 h-4 text-amber-500" />
-                      <span className="text-[11px] font-black uppercase tracking-wider">MATCH COMPLETE</span>
+                  <div className="flex items-center justify-between text-xs pb-2 sm:pb-2.5 border-b border-slate-100">
+                    <div className="flex items-center gap-1.5 font-bold text-[#0A0A0F]">
+                      <Trophy className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-amber-500" />
+                      <span className="text-[11px] sm:text-[11px] font-black uppercase tracking-wider">MATCH COMPLETE</span>
                     </div>
-                    <span className="text-[11px] font-mono text-slate-500 font-semibold">
+                    <span className="text-[11px] sm:text-[11px] font-mono text-slate-500 font-semibold">
                       {formatTimeAgo(match.completedAt)}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between gap-3">
-                    {/* Pair 1 */}
+                    {/* Pair 1 — players stacked (mobile-friendly) */}
                     <div
                       onClick={() => match.team1?.id && onSelectTeam(match.team1.id)}
-                      className="flex-1 cursor-pointer hover:text-emerald-700 transition-colors"
+                      className="flex-1 cursor-pointer hover:text-blue-700 transition-colors"
                     >
                       <p
-                        className={`text-xs sm:text-sm font-extrabold leading-tight ${
-                          g1 > g2 ? 'text-[#170036]' : 'text-slate-500'
+                        className={`text-sm sm:text-lg font-extrabold leading-snug ${
+                          g1 > g2 ? 'text-[#0A0A0F]' : 'text-slate-500'
                         }`}
                       >
-                        {pairLabel(match.team1, 'TBD')}
+                        {match.team1?.player1 ?? 'TBD'}
+                        <span className="block">{match.team1?.player2 ?? ''}</span>
                       </p>
                     </div>
 
                     {/* Games Score (WTA Style scoreboard badge) */}
-                    <div className="flex-shrink-0 px-3.5 py-1.5 rounded-2xl bg-[#170036] border border-purple-900 font-mono font-black text-base shadow-sm">
+                    <div className="flex-shrink-0 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-2xl bg-[#0A0A0F] border border-zinc-700 font-mono font-black text-sm sm:text-base shadow-sm">
                       <span className={g1 > g2 ? 'text-yellow-300 font-black' : 'text-slate-400'}>{g1}</span>
-                      <span className="text-purple-300 mx-1.5">—</span>
+                      <span className="text-zinc-400 mx-1.5">—</span>
                       <span className={g2 > g1 ? 'text-yellow-300 font-black' : 'text-slate-400'}>{g2}</span>
                     </div>
 
-                    {/* Pair 2 */}
+                    {/* Pair 2 — players stacked (mobile-friendly) */}
                     <div
                       onClick={() => match.team2?.id && onSelectTeam(match.team2.id)}
-                      className="flex-1 text-right cursor-pointer hover:text-emerald-700 transition-colors"
+                      className="flex-1 text-right cursor-pointer hover:text-blue-700 transition-colors"
                     >
                       <p
-                        className={`text-xs sm:text-sm font-extrabold leading-tight ${
-                          g2 > g1 ? 'text-[#170036]' : 'text-slate-500'
+                        className={`text-sm sm:text-lg font-extrabold leading-snug ${
+                          g2 > g1 ? 'text-[#0A0A0F]' : 'text-slate-500'
                         }`}
                       >
-                        {pairLabel(match.team2, 'TBD')}
+                        {match.team2?.player1 ?? 'TBD'}
+                        <span className="block">{match.team2?.player2 ?? ''}</span>
                       </p>
                     </div>
                   </div>
 
                   {/* Winner Banner */}
                   {winnerTeam && (
-                    <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] bg-emerald-50/60 -mx-5 -mb-5 px-5 py-2.5 rounded-b-3xl">
+                    <div className="pt-2 sm:pt-2.5 border-t border-slate-100 flex items-center justify-between bg-blue-50/60 -mx-3.5 -mb-3.5 px-3.5 sm:-mx-5 sm:-mb-5 sm:px-5 py-2 sm:py-2.5 rounded-b-3xl">
                       <span className="text-slate-600 font-bold uppercase tracking-wider text-[10px]">Winner:</span>
-                      <span className="text-emerald-800 font-black truncate max-w-[200px] flex items-center gap-1">
+                      <span className="text-blue-800 font-black truncate max-w-[140px] sm:max-w-[200px] flex items-center gap-1 text-xs sm:text-[11px]">
                         {pairLabel(winnerTeam)} 🏆
                       </span>
                     </div>
@@ -233,14 +326,14 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
         <section id="section-live-matches">
           <div className="flex items-center justify-between mb-3 px-1">
             <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-[#170036] animate-ping" />
-              <h2 className="text-xl sm:text-2xl font-display font-bold text-[#170036] uppercase tracking-tight">
+              <span className="w-3 h-3 rounded-full bg-[#0A0A0F] animate-ping" />
+              <h2 className="text-xl sm:text-2xl font-display font-bold text-[#0A0A0F] uppercase tracking-tight">
                 Live On Court Now
               </h2>
             </div>
             <button
               onClick={onGoToCourts}
-              className="text-xs font-mono font-black text-[#170036] hover:underline flex items-center gap-1 transition-colors uppercase tracking-wider"
+              className="text-xs font-mono font-black text-[#0A0A0F] hover:underline flex items-center gap-1 transition-colors uppercase tracking-wider"
             >
               <span>View All Courts</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
@@ -260,16 +353,16 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                   <div
                     key={match.id}
                     id={`live-card-${match.id}`}
-                    className="rounded-3xl bg-[#170036] text-white border-2 border-emerald-400 p-6 shadow-2xl relative overflow-hidden space-y-4"
+                    className="rounded-3xl bg-[#0A0A0F] text-white border-2 border-blue-400 p-6 shadow-2xl relative overflow-hidden space-y-4"
                   >
                     {/* Header */}
-                    <div className="flex items-center justify-between pb-3 border-b border-purple-900/60">
+                    <div className="flex items-center justify-between pb-3 border-b border-zinc-700/60">
                       <div className="flex items-center gap-2">
-                        <span className="px-3 py-1 rounded-full bg-[#00DF81] text-slate-950 text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                        <span className="px-3 py-1 rounded-full bg-[#CCFF00] text-slate-950 text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
                           <span className="w-2 h-2 rounded-full bg-slate-950 animate-pulse" />
                           LIVE
                         </span>
-                        <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-300">
+                        <span className="text-xs font-mono font-bold uppercase tracking-wider text-blue-300">
                           {match.court?.name || 'Assigned Court'}
                         </span>
                       </div>
@@ -281,16 +374,16 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                       {/* Team 1 */}
                       <div
                         onClick={() => match.team1?.id && onSelectTeam(match.team1.id)}
-                        className="p-3.5 rounded-2xl bg-purple-950/60 border border-purple-800/80 text-center cursor-pointer hover:border-emerald-400 transition-colors"
+                        className="p-3.5 rounded-2xl bg-zinc-800/60 border border-zinc-700/80 text-center cursor-pointer hover:border-blue-400 transition-colors"
                       >
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400 block mb-1 truncate">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-400 block mb-1 truncate">
                           PAIRING 1
                         </span>
                         <div className="font-sans text-sm font-bold text-white leading-tight mb-2">
                           {pairLabel(match.team1, 'TBD')}
                         </div>
-                        <div className="pt-1.5 border-t border-purple-900">
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-purple-300 block">
+                        <div className="pt-1.5 border-t border-zinc-700">
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-400 block">
                             GAMES
                           </span>
                           <span className="text-3xl font-display font-black text-yellow-300">
@@ -302,16 +395,16 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                       {/* Team 2 */}
                       <div
                         onClick={() => match.team2?.id && onSelectTeam(match.team2.id)}
-                        className="p-3.5 rounded-2xl bg-purple-950/60 border border-purple-800/80 text-center cursor-pointer hover:border-emerald-400 transition-colors"
+                        className="p-3.5 rounded-2xl bg-zinc-800/60 border border-zinc-700/80 text-center cursor-pointer hover:border-blue-400 transition-colors"
                       >
-                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400 block mb-1 truncate">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-400 block mb-1 truncate">
                           PAIRING 2
                         </span>
                         <div className="font-sans text-sm font-bold text-white leading-tight mb-2">
                           {pairLabel(match.team2, 'TBD')}
                         </div>
-                        <div className="pt-1.5 border-t border-purple-900">
-                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-purple-300 block">
+                        <div className="pt-1.5 border-t border-zinc-700">
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-zinc-400 block">
                             GAMES
                           </span>
                           <span className="text-3xl font-display font-black text-yellow-300">
@@ -322,7 +415,7 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                     </div>
 
                     {/* Current Game Point & Golden Point Banner */}
-                    <div className="p-3 rounded-2xl bg-slate-950/90 border border-purple-900 flex flex-col items-center justify-center gap-1 shadow-inner">
+                    <div className="p-3 rounded-2xl bg-slate-950/90 border border-zinc-700 flex flex-col items-center justify-center gap-1 shadow-inner">
                       <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
                         Current Game Points
                       </span>
@@ -333,7 +426,7 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                           <Flame className="w-4 h-4 text-slate-950" />
                         </div>
                       ) : (
-                        <div className="text-base font-black font-mono text-[#00DF81] tracking-wide">
+                        <div className="text-base font-black font-mono text-[#CCFF00] tracking-wide">
                           {padel
                             ? `${formatPointDisplay(padel.team1Points)} — ${formatPointDisplay(padel.team2Points)}`
                             : 'LOVE — LOVE'}
@@ -343,7 +436,7 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
 
                     {/* Status ticker */}
                     {padel?.lastEventMessage && (
-                      <div className="text-[11px] text-emerald-300 text-center font-mono font-semibold bg-purple-950/80 py-1.5 rounded-xl border border-purple-900">
+                      <div className="text-[11px] text-blue-300 text-center font-mono font-semibold bg-zinc-800/80 py-1.5 rounded-xl border border-zinc-700">
                         {padel.lastEventMessage}
                       </div>
                     )}
@@ -358,8 +451,8 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
       <section id="section-groups-standings">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 px-1">
           <div>
-            <h2 className="text-xl sm:text-2xl font-display font-bold text-[#170036] uppercase tracking-tight flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-[#170036]" />
+            <h2 className="text-xl sm:text-2xl font-display font-bold text-[#0A0A0F] uppercase tracking-tight flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-[#0A0A0F]" />
               Group Stage Standings & Matches
             </h2>
             <p className="text-xs font-mono font-bold text-slate-800">
@@ -370,7 +463,7 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
           {/* Group Tabs in WTA Pill Container */}
           <div
             id="group-tabs-selector"
-            className="flex items-center gap-1.5 p-1.5 bg-white/90 backdrop-blur-md border border-emerald-400/60 rounded-2xl overflow-x-auto max-w-full shadow-md"
+            className="flex items-center gap-1.5 p-1.5 bg-white/90 backdrop-blur-md border border-blue-400/60 rounded-2xl overflow-x-auto max-w-full shadow-md"
           >
             {groups.map((group) => {
               const isSelected = selectedGroupId === group.id;
@@ -381,8 +474,8 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                   onClick={() => setSelectedGroupId(group.id)}
                   className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black tracking-wider uppercase transition-all whitespace-nowrap cursor-pointer ${
                     isSelected
-                      ? 'bg-[#170036] text-[#00DF81] shadow-md font-black'
-                      : 'text-slate-800 hover:bg-emerald-100 hover:text-slate-950 font-extrabold'
+                      ? 'bg-[#0A0A0F] text-[#CCFF00] shadow-md font-black'
+                      : 'text-slate-800 hover:bg-blue-100 hover:text-slate-950 font-extrabold'
                   }`}
                 >
                   {group.name}
@@ -393,12 +486,12 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
         </div>
 
         {/* Standings Table for Selected Group */}
-        <div className="bg-white border border-emerald-300/80 rounded-3xl overflow-hidden shadow-xl mb-8 text-slate-900">
-          <div className="px-6 py-4 bg-[#170036] text-white flex items-center justify-between">
-            <span className="text-sm sm:text-base font-bold text-[#00DF81] font-display uppercase tracking-wider">
+        <div className="bg-white border border-blue-300/80 rounded-3xl overflow-hidden shadow-xl mb-8 text-slate-900">
+          <div className="px-6 py-4 bg-[#0A0A0F] text-white flex items-center justify-between">
+            <span className="text-sm sm:text-base font-bold text-[#CCFF00] font-display uppercase tracking-wider">
               {currentGroup?.name || 'Group'} — Official Standings Table
             </span>
-            <span className="text-xs font-mono text-purple-200">
+            <span className="text-xs font-mono text-zinc-300">
               Win = {settings?.scoring.pointsForWin ?? 3} pts • Loss ={' '}
               {settings?.scoring.pointsForLoss ?? 0} pt
             </span>
@@ -414,7 +507,7 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                   <th className="py-3.5 px-3 text-center">W</th>
                   <th className="py-3.5 px-3 text-center">L</th>
                   <th className="py-3.5 px-3 text-center font-bold text-slate-800">Diff</th>
-                  <th className="py-3.5 px-4 text-center font-bold text-[#170036]">Pts</th>
+                  <th className="py-3.5 px-4 text-center font-bold text-[#0A0A0F]">Pts</th>
                   <th className="py-3.5 px-4 text-center">Status</th>
                 </tr>
               </thead>
@@ -424,8 +517,8 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                     key={row.teamId}
                     id={`standings-row-${row.teamId}`}
                     onClick={() => onSelectTeam(row.teamId)}
-                    className={`hover:bg-emerald-50/60 cursor-pointer transition-colors group ${
-                      row.qualified ? 'bg-emerald-50/30' : ''
+                    className={`hover:bg-blue-50/60 cursor-pointer transition-colors group ${
+                      row.qualified ? 'bg-blue-50/30' : ''
                     }`}
                   >
                     {/* Pos */}
@@ -433,7 +526,7 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                       <span
                         className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs ${
                           row.qualified
-                            ? 'bg-[#170036] text-[#00DF81] font-black shadow-sm'
+                            ? 'bg-[#0A0A0F] text-[#CCFF00] font-black shadow-sm'
                             : 'text-slate-500 font-bold'
                         }`}
                       >
@@ -443,7 +536,7 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
 
                     {/* Players */}
                     <td className="py-3.5 px-4">
-                      <div className="font-extrabold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                      <div className="font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors">
                         {pairLabel(row, 'TBD')}
                       </div>
                     </td>
@@ -454,7 +547,7 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                     </td>
 
                     {/* W */}
-                    <td className="py-3.5 px-3 text-center font-bold text-emerald-700 font-mono">
+                    <td className="py-3.5 px-3 text-center font-bold text-blue-700 font-mono">
                       {row.wins}
                     </td>
 
@@ -467,15 +560,15 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                     </td>
 
                     {/* Pts */}
-                    <td className="py-3.5 px-4 text-center font-display font-black text-base text-[#170036]">
+                    <td className="py-3.5 px-4 text-center font-display font-black text-base text-[#0A0A0F]">
                       {row.points}
                     </td>
 
                     {/* Status */}
                     <td className="py-3.5 px-4 text-center">
                       {row.qualified ? (
-                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-sm">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 text-blue-900 border border-blue-300 shadow-sm">
+                          <CheckCircle2 className="w-3 h-3 text-blue-700" />
                           QUALIFIED
                         </span>
                       ) : (
@@ -492,10 +585,10 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
         {/* 5. Group Matches: Completed & Upcoming */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Completed Matches in Group */}
-          <div className="bg-white border border-emerald-300/80 rounded-3xl p-5 sm:p-6 shadow-xl text-slate-900">
-            <h3 className="text-sm font-display font-bold uppercase tracking-wider text-[#170036] mb-4 flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="bg-white border border-blue-300/80 rounded-3xl p-5 sm:p-6 shadow-xl text-slate-900">
+            <h3 className="text-sm font-display font-bold uppercase tracking-wider text-[#0A0A0F] mb-4 flex items-center justify-between pb-3 border-b border-slate-100">
               <span>Completed Matches ({completedMatchesInGroup.length})</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <CheckCircle2 className="w-4 h-4 text-blue-600" />
             </h3>
 
             {completedMatchesInGroup.length === 0 ? (
@@ -508,7 +601,7 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                   <div
                     key={match.id}
                     id={`completed-match-${match.id}`}
-                    className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 hover:border-emerald-400 transition-colors shadow-sm"
+                    className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 hover:border-blue-400 transition-colors shadow-sm"
                   >
                     <div className="flex-1">
                       <div className="flex items-center justify-between text-xs mb-1 font-mono">
@@ -529,7 +622,7 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                           onClick={() => match.team1?.id && onSelectTeam(match.team1.id)}
                           className={`font-extrabold cursor-pointer hover:underline ${
                             (match.team1Score ?? 0) > (match.team2Score ?? 0)
-                              ? 'text-[#170036]'
+                              ? 'text-[#0A0A0F]'
                               : 'text-slate-500'
                           }`}
                         >
@@ -542,7 +635,7 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                           onClick={() => match.team2?.id && onSelectTeam(match.team2.id)}
                           className={`font-extrabold cursor-pointer hover:underline ${
                             (match.team2Score ?? 0) > (match.team1Score ?? 0)
-                              ? 'text-[#170036]'
+                              ? 'text-[#0A0A0F]'
                               : 'text-slate-500'
                           }`}
                         >
@@ -557,8 +650,8 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
           </div>
 
           {/* Upcoming Matches in Group */}
-          <div className="bg-white border border-emerald-300/80 rounded-3xl p-5 sm:p-6 shadow-xl text-slate-900">
-            <h3 className="text-sm font-display font-bold uppercase tracking-wider text-[#170036] mb-4 flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="bg-white border border-blue-300/80 rounded-3xl p-5 sm:p-6 shadow-xl text-slate-900">
+            <h3 className="text-sm font-display font-bold uppercase tracking-wider text-[#0A0A0F] mb-4 flex items-center justify-between pb-3 border-b border-slate-100">
               <span>Upcoming & Scheduled ({upcomingMatchesInGroup.length})</span>
               <Clock className="w-4 h-4 text-slate-600" />
             </h3>
@@ -573,28 +666,28 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                   <div
                     key={match.id}
                     id={`upcoming-match-${match.id}`}
-                    className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 hover:border-emerald-400 transition-colors shadow-sm"
+                    className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 hover:border-blue-400 transition-colors shadow-sm"
                   >
                     <div className="flex-1">
                       <div className="flex items-center justify-between text-xs mb-1.5 font-mono">
                         <span className="text-slate-500 text-[11px] font-bold">
                           Match #{match.matchNumber} • {match.court?.name || 'TBD'}
                         </span>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#170036] text-[#00DF81]">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#0A0A0F] text-[#CCFF00]">
                           {match.scheduledTime || 'Upcoming'}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span
                           onClick={() => match.team1?.id && onSelectTeam(match.team1.id)}
-                          className="font-extrabold text-[#170036] cursor-pointer hover:underline"
+                          className="font-extrabold text-[#0A0A0F] cursor-pointer hover:underline"
                         >
                           {pairLabel(match.team1, 'TBD')}
                         </span>
                         <span className="text-xs font-mono font-bold text-slate-400 px-2 uppercase">vs</span>
                         <span
                           onClick={() => match.team2?.id && onSelectTeam(match.team2.id)}
-                          className="font-extrabold text-[#170036] cursor-pointer hover:underline"
+                          className="font-extrabold text-[#0A0A0F] cursor-pointer hover:underline"
                         >
                           {pairLabel(match.team2, 'TBD')}
                         </span>

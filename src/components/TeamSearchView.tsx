@@ -81,7 +81,7 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
         placeholder="Search by player name..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        className="w-full pl-9 pr-4 py-2.5 bg-white border border-emerald-300/80 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 shadow-md font-medium"
+        className="w-full pl-9 pr-4 py-2.5 bg-white border border-blue-300/80 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 shadow-md font-medium"
       />
     </div>
   );
@@ -97,13 +97,13 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
         aria-expanded={showChevron ? isOpen : undefined}
         className={`w-full text-left flex items-center justify-between gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all duration-200 shadow-sm ${
           isOpen
-            ? 'bg-white border-2 border-[#170036] text-slate-950 shadow-md ring-2 ring-[#00DF81]/50'
-            : 'bg-white/90 border-slate-200 hover:bg-white hover:border-emerald-400 text-slate-800'
+            ? 'bg-white border-2 border-[#0A0A0F] text-slate-950 shadow-md ring-2 ring-[#CCFF00]/50'
+            : 'bg-white/90 border-slate-200 hover:bg-white hover:border-blue-400 text-slate-800'
         }`}
       >
         <span className="min-w-0">
           <span className="flex items-center gap-2 text-xs mb-1 font-mono">
-            <span className="font-bold text-emerald-700">{gName}</span>
+            <span className="font-bold text-blue-700">{gName}</span>
             <span className="text-[11px] text-slate-400">Padel Pair</span>
           </span>
           <span className="block font-black text-sm text-slate-900 leading-tight truncate">
@@ -114,7 +114,7 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
         {showChevron && (
           <ChevronDown
             className={`w-4 h-4 shrink-0 transition-transform duration-300 ease-out ${
-              isOpen ? 'rotate-180 text-[#170036]' : 'text-slate-400'
+              isOpen ? 'rotate-180 text-[#0A0A0F]' : 'text-slate-400'
             }`}
           />
         )}
@@ -133,21 +133,21 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
     return (
       <div className="space-y-4 sm:space-y-6">
         {/* Team Banner Card */}
-        <div className="rounded-3xl bg-white border border-emerald-300/80 p-5 sm:p-6 shadow-xl relative overflow-hidden text-slate-900">
+        <div className="rounded-3xl bg-white border border-blue-300/80 p-5 sm:p-6 shadow-xl relative overflow-hidden text-slate-900">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
             <div>
               <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-100 text-emerald-900 border border-emerald-300">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-blue-100 text-blue-900 border border-blue-300">
                   {group?.name || 'Group'}
                 </span>
                 {teamStanding?.qualified && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-100 text-emerald-900 border border-emerald-300">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-blue-100 text-blue-900 border border-blue-300">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-700" />
                     Qualified
                   </span>
                 )}
               </div>
-              <div className="font-sans text-xl sm:text-2xl font-bold text-[#170036] uppercase tracking-tight leading-tight">
+              <div className="font-sans text-xl sm:text-2xl font-bold text-[#0A0A0F] uppercase tracking-tight leading-tight">
                 {pairLabel(team, 'TBD')}
               </div>
             </div>
@@ -157,7 +157,7 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
                 Group Position
               </span>
-              <span className="text-3xl font-display font-black text-[#170036]">
+              <span className="text-3xl font-display font-black text-[#0A0A0F]">
                 #{teamStanding?.position || '—'}
               </span>
             </div>
@@ -171,7 +171,7 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
             </div>
             <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center">
               <span className="text-[10px] text-slate-500 uppercase font-mono font-bold block">Wins</span>
-              <span className="text-lg font-mono font-black text-emerald-700">{teamStanding?.wins || 0}</span>
+              <span className="text-lg font-mono font-black text-blue-700">{teamStanding?.wins || 0}</span>
             </div>
             <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center">
               <span className="text-[10px] text-slate-500 uppercase font-mono font-bold block">Losses</span>
@@ -185,7 +185,7 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
             </div>
             <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center col-span-2 sm:col-span-1">
               <span className="text-[10px] text-slate-500 uppercase font-mono font-bold block">Points</span>
-              <span className="text-lg font-display font-black text-[#170036]">
+              <span className="text-lg font-display font-black text-[#0A0A0F]">
                 {teamStanding?.points || 0}
               </span>
             </div>
@@ -193,8 +193,8 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
         </div>
 
         {/* Matches Log */}
-        <div className="bg-white border border-emerald-300/80 rounded-3xl p-5 sm:p-6 shadow-xl text-slate-900">
-          <h4 className="text-sm font-bold uppercase tracking-wider text-[#170036] mb-4 flex flex-wrap items-center justify-between gap-1">
+        <div className="bg-white border border-blue-300/80 rounded-3xl p-5 sm:p-6 shadow-xl text-slate-900">
+          <h4 className="text-sm font-bold uppercase tracking-wider text-[#0A0A0F] mb-4 flex flex-wrap items-center justify-between gap-1">
             <span>Group Matches ({teamMatches.length})</span>
             <span className="text-[11px] font-mono font-bold text-slate-500">Opponent • Score • Outcome</span>
           </h4>
@@ -215,7 +215,7 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
               if (m.status === 'completed') {
                 if ((myScore ?? 0) > (oppScore ?? 0)) {
                   outcomeBadge = (
-                    <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-black uppercase tracking-wider bg-emerald-100 text-emerald-900 border border-emerald-300">
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-black uppercase tracking-wider bg-blue-100 text-blue-900 border border-blue-300">
                       Win
                     </span>
                   );
@@ -228,7 +228,7 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
                 }
               } else if (m.status === 'live') {
                 outcomeBadge = (
-                  <span className="px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-[#00DF81] text-slate-950 animate-pulse shadow-sm">
+                  <span className="px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-[#CCFF00] text-slate-950 animate-pulse shadow-sm">
                     LIVE
                   </span>
                 );
@@ -237,7 +237,7 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
               return (
                 <div
                   key={m.id}
-                  className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 hover:border-emerald-400 transition-colors"
+                  className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 hover:border-blue-400 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500 mb-1 flex-wrap">
@@ -258,11 +258,11 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
                   <div className="text-center font-display font-extrabold text-base shrink-0">
                     {m.status === 'completed' || m.status === 'live' ? (
                       <div>
-                        <span className="text-[#170036] font-black whitespace-nowrap">
+                        <span className="text-[#0A0A0F] font-black whitespace-nowrap">
                           {myScore} — {oppScore}
                         </span>
                         {m.scoreSummary && (
-                          <div className="text-[10px] font-mono text-emerald-700 font-bold mt-0.5">
+                          <div className="text-[10px] font-mono text-blue-700 font-bold mt-0.5">
                             {m.scoreSummary}
                           </div>
                         )}
@@ -285,13 +285,13 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-emerald-400/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-900/20">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#170036] text-[#00DF81] text-xs font-black uppercase tracking-wider mb-2 shadow-sm">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0A0A0F] text-[#CCFF00] text-xs font-black uppercase tracking-wider mb-2 shadow-sm">
             <Users className="w-3.5 h-3.5" />
             Player Portal
           </div>
-          <h2 className="text-2xl sm:text-3xl font-display font-bold text-[#170036] uppercase tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-display font-bold text-[#0A0A0F] uppercase tracking-tight">
             Player Profiles &amp; Match Log
           </h2>
           <p className="text-xs font-mono font-bold text-slate-800 mt-0.5">
@@ -330,7 +330,7 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
 
           <div id="team-search-results-list" className="space-y-2.5">
             {filteredTeams.length === 0 && (
-              <div className="py-10 text-center text-sm text-slate-600 font-mono bg-white/80 rounded-2xl border border-emerald-300">
+              <div className="py-10 text-center text-sm text-slate-600 font-mono bg-white/80 rounded-2xl border border-blue-300">
                 No pairings match "{searchTerm}".
               </div>
             )}

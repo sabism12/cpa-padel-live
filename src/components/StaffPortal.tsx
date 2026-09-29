@@ -63,12 +63,12 @@ export const StaffPortal: React.FC<StaffPortalProps> = ({
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono font-bold uppercase tracking-widest text-[#00DF81]">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono font-bold uppercase tracking-widest text-[#CCFF00]">
             <Lock className="w-3 h-3" />
             Restricted Area
           </div>
           <h1 className="mt-4 text-2xl sm:text-3xl font-display font-bold italic text-white">
-            CPA PADEL <span className="text-[#00DF81]">STAFF</span>
+            CPA PADEL <span className="text-[#CCFF00]">STAFF</span>
           </h1>
           <p className="mt-1 text-xs font-mono text-slate-500">
             Scorekeeper &amp; tournament administration access
@@ -98,19 +98,19 @@ export const StaffPortal: React.FC<StaffPortalProps> = ({
   const isAdmin = session.role === 'admin';
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#00DF81] text-slate-950">
+    <div className="min-h-screen flex flex-col bg-[#2E6BFF] text-slate-950">
       {/* Staff-only control bar */}
       <header className="bg-slate-950 text-slate-100 border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#00DF81] text-slate-950 font-bold flex items-center justify-center font-display italic text-lg shadow-md">
+            <div className="w-9 h-9 rounded-xl bg-[#CCFF00] text-slate-950 font-bold flex items-center justify-center font-display italic text-lg shadow-md">
               CPA
             </div>
             <div>
               <div className="text-sm font-display font-bold text-white leading-none">
                 Staff Access Portal
               </div>
-              <div className="text-[11px] font-mono text-[#00DF81] mt-0.5">
+              <div className="text-[11px] font-mono text-[#CCFF00] mt-0.5">
                 {session.name} · <span className="capitalize">{session.role}</span>
               </div>
             </div>
@@ -135,7 +135,7 @@ export const StaffPortal: React.FC<StaffPortalProps> = ({
                   onClick={() => onChangeView('admin')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
                     view === 'admin'
-                      ? 'bg-purple-500 text-white'
+                      ? 'bg-blue-500 text-white'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >

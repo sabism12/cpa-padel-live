@@ -258,12 +258,15 @@
      whole UI matches; swap back to a monospace stack for tabular digits. */
   --font-mono: 'General Sans', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
+  /* Brand palette, sampled from the reference artwork:
+     vivid royal blue (page + secondary accent), volt/lime (primary accent)
+     and near-black ink (dark surfaces + text). */
   --color-padel-volt: #ccff00;
   --color-padel-neon: #a3e635;
-  --color-padel-blue: #0284c7;
-  --color-padel-dark: #090d16;
-  --color-wta-green: #00df81;
-  --color-wta-plum: #1a0038;
+  --color-padel-blue: #2e6bff;
+  --color-padel-dark: #0a0a0f;
+  --color-wta-green: #ccff00;
+  --color-wta-plum: #0a0a0f;
 }
 
 @layer base {
@@ -273,34 +276,33 @@
 
   body {
     font-family: var(--font-sans);
-    /* Page wash, sampled pixel-by-pixel from the WTA reference capture:
-       vivid green at the top -> near-white mint through the middle of the
-       content -> vivid green returning near the footer -> light mint at the
-       very bottom. Set on <body> so it spans the whole document. */
-    background-color: #00e098;
+    /* Page wash, matching the reference's vivid royal-blue canvas:
+       saturated blue at the top -> light blue/white through the middle of the
+       content (so dark ink stays legible and white cards blend) -> saturated
+       blue returning near the footer. Set on <body> so it spans the document. */
+    background-color: #2e6bff;
     background-image: linear-gradient(
       180deg,
-      #00e098 0%,
-      #00e198 3%,
-      #00da83 8%,
-      #1eda85 13%,
-      #55de98 19%,
-      #84e4ac 24%,
-      #baedce 32%,
-      #e1f4e5 40%,
-      #f1f8f0 48%,
-      #e3f7e8 56%,
-      #bff1d9 64%,
-      #90edc9 72%,
-      #50eaba 80%,
-      #2de9b6 84%,
-      #03e8b2 88%,
-      #00ecbb 92%,
-      #00efc5 96%,
-      #6ef5dc 100%
+      #2e6bff 0%,
+      #2f6fff 4%,
+      #346fff 9%,
+      #3d76ff 15%,
+      #4a82ff 22%,
+      #5c90ff 30%,
+      #6f9dff 38%,
+      #84abff 46%,
+      #93b6ff 52%,
+      #84abff 58%,
+      #6f9dff 66%,
+      #5c90ff 74%,
+      #4a82ff 80%,
+      #3d76ff 85%,
+      #2e6bff 90%,
+      #2a63f2 95%,
+      #2e6bff 100%
     );
     background-repeat: no-repeat;
-    color: #0f172a;
+    color: #0a0a0f;
     min-height: 100vh;
   }
 
@@ -325,11 +327,18 @@
 .animate-ticker {
   display: inline-flex;
   white-space: nowrap;
-  animation: tickerMarquee 25s linear infinite;
+  animation: tickerMarquee 14s linear infinite;
 }
 
 .animate-ticker:hover {
   animation-play-state: paused;
+}
+
+/* WTA-style edge fade for the marquee ticker: items dissolve in/out at both
+   edges instead of being hard-clipped by the container. */
+.ticker-fade {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 6%, #000 94%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 6%, #000 94%, transparent 100%);
 }
 
 /* Fluid expand / collapse used by the mobile player accordion.
