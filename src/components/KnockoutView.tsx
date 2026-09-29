@@ -22,7 +22,7 @@ import {
 import { Match, Team, Court, Group, StandingsRow, TournamentSettings, AuthSession } from '../types';
 import { EnrichedMatch } from '../api';
 import { seedKnockoutFromStandings } from '../api';
-import { pairLabel, lastName } from '../utils/teamDisplay';
+import { pairLabel } from '../utils/teamDisplay';
 
 interface KnockoutViewProps {
   matches: EnrichedMatch[];
@@ -113,7 +113,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
     }
   };
 
-  // Render Team Node inside Card (WTA / FotMob Style)
+  // Render Team Node inside Card (site aesthetic: stacked names, no avatars)
   const renderTeamNode = (
     team: Team | undefined,
     score: number | null,
@@ -122,17 +122,13 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
     fallbackText = 'TBD',
     isDarkCard = false
   ) => {
-    const badge = team
-      ? getTeamBadgeInfo(pairLabel(team, fallbackText))
-      : { bg: 'from-slate-700 to-slate-800', border: 'border-slate-600', text: 'text-slate-400', flag: '⚪' };
-
-    const surnames = team
-      ? [lastName(team.player1), lastName(team.player2)].filter(Boolean)
+    const names = team
+      ? [team.player1, team.player2].filter(Boolean)
       : [fallbackText];
 
-    const surnameClasses = `text-[10px] sm:text-[11px] font-bold leading-tight text-center ${
+    const nameClasses = `text-[10px] sm:text-[11px] font-bold leading-tight text-center ${
       isDarkCard
-        ? isWinner ? 'text-white' : 'text-slate-400'
+        ? isWinner ? 'text-white' : 'text-zinc-400'
         : isWinner ? 'text-[#0A0A0F] font-black' : isLoser ? 'text-slate-400' : 'text-slate-700'
     }`;
 
@@ -142,17 +138,10 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
           isLoser ? 'opacity-35 line-through decoration-slate-400' : ''
         }`}
       >
-        {/* Flag / Circular Avatar */}
-        <div
-          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br ${badge.bg} border ${badge.border} flex items-center justify-center shadow-md mb-1 relative`}
-        >
-          <span className="text-[11px] select-none">{badge.flag}</span>
-        </div>
-
-        {/* Player surnames */}
-        {surnames.map((surname, idx) => (
-          <span key={idx} className={surnameClasses}>
-            {surname}
+        {/* Player names (first + second, stacked) */}
+        {names.map((name, idx) => (
+          <span key={idx} className={nameClasses}>
+            {name}
           </span>
         ))}
 
@@ -160,7 +149,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
         <span
           className={`text-sm sm:text-base font-mono font-black mt-0.5 leading-none ${
             isDarkCard
-              ? isWinner ? 'text-yellow-300 font-black' : 'text-slate-400'
+              ? isWinner ? 'text-[#CCFF00] font-black' : 'text-zinc-400'
               : isWinner ? 'text-[#0A0A0F] font-black' : 'text-slate-500'
           }`}
         >
@@ -178,7 +167,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
   ) => {
     if (!match) {
       return (
-        <div className="w-32 sm:w-36 h-20 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-xs font-mono font-bold text-slate-400">
+        <div className="w-full max-w-[9.5rem] h-20 rounded-2xl bg-zinc-900/60 border-2 border-dashed border-zinc-700 flex items-center justify-center text-xs font-mono font-bold text-zinc-500">
           Match TBD
         </div>
       );
@@ -191,42 +180,41 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
 
     const t1Wins = isCompleted && t1Score !== null && t2Score !== null && t1Score > t2Score;
     const t2Wins = isCompleted && t1Score !== null && t2Score !== null && t2Score > t1Score;
-    const isDark = badgeType === 'final' || badgeType === '3rd' || isLive;
 
     return (
       <div
         onClick={() => setSelectedMatch(match)}
-        className={`group relative w-32 sm:w-36 p-2 sm:p-2.5 rounded-2xl transition-all duration-200 cursor-pointer select-none flex flex-col justify-between ${
+        className={`group relative p-2 sm:p-2.5 rounded-2xl transition-all duration-200 cursor-pointer select-none flex flex-col justify-between bg-[#0A0A0F] text-white ${
           badgeType === 'final'
-            ? 'bg-[#0A0A0F] border-2 border-amber-400 shadow-xl text-white hover:border-amber-300'
+            ? 'w-full max-w-[13rem] border-2 border-amber-400 shadow-xl shadow-amber-500/25 hover:border-amber-300 hover:shadow-amber-400/40'
             : badgeType === '3rd'
-            ? 'bg-[#0A0A0F] border-2 border-sky-400 shadow-lg text-white hover:border-sky-300'
+            ? 'w-full max-w-[13rem] border-2 border-sky-400 shadow-lg shadow-sky-500/25 hover:border-sky-300 hover:shadow-sky-400/40'
             : isLive
-            ? 'bg-[#0A0A0F] border-2 border-blue-400 shadow-lg text-white hover:scale-105'
-            : 'bg-slate-50 border-2 border-slate-200 hover:border-blue-500 shadow-md hover:-translate-y-0.5 text-slate-900'
+            ? 'w-full max-w-[9.5rem] border-2 border-[#CCFF00] shadow-lg hover:scale-105'
+            : 'w-full max-w-[9.5rem] border-2 border-zinc-700 shadow-lg hover:border-blue-400 hover:-translate-y-0.5'
         }`}
       >
         {/* Match Top Teams Container */}
         <div className="flex items-center justify-between gap-1">
-          {renderTeamNode(match.team1, t1Score, t1Wins, t2Wins, 'T1', isDark)}
+          {renderTeamNode(match.team1, t1Score, t1Wins, t2Wins, 'T1', true)}
           
-          <div className="text-[10px] text-slate-400 font-mono font-bold px-0.5 self-center">
+          <div className="text-[10px] text-zinc-500 font-mono font-bold px-0.5 self-center">
             vs
           </div>
 
-          {renderTeamNode(match.team2, t2Score, t2Wins, t1Wins, 'T2', isDark)}
+          {renderTeamNode(match.team2, t2Score, t2Wins, t1Wins, 'T2', true)}
         </div>
 
         {/* Badge Indicator at Bottom */}
         <div className="mt-2 flex items-center justify-center">
           {badgeType === 'final' ? (
-            <span className="px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[9px] uppercase tracking-wider shadow-sm flex items-center gap-1">
-              <Crown className="w-2.5 h-2.5" />
+            <span className="px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] sm:text-[11px] uppercase tracking-wider shadow-md shadow-amber-500/40 flex items-center gap-1">
+              <Crown className="w-3 h-3" />
               FINAL
             </span>
           ) : badgeType === '3rd' ? (
-            <span className="px-2.5 py-0.5 rounded-full bg-sky-500 text-white font-black text-[9px] uppercase tracking-wider shadow-sm flex items-center gap-1">
-              <Award className="w-2.5 h-2.5" />
+            <span className="px-3 py-1 rounded-full bg-sky-500 text-white font-black text-[10px] sm:text-[11px] uppercase tracking-wider shadow-md shadow-sky-500/40 flex items-center gap-1">
+              <Award className="w-3 h-3" />
               3rd
             </span>
           ) : isLive ? (
@@ -249,268 +237,157 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 max-w-6xl mx-auto">
-      {/* 1. TOP HEADER & SUB-NAV (Exact FotMob Style) */}
-      <div className="space-y-3">
-        {/* Season & Quick Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-900/20">
-          <div className="flex items-center gap-3">
-            <div className="px-3 py-1 rounded-xl bg-white border border-blue-300 text-xs font-mono font-bold text-slate-900 flex items-center gap-2 shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-[#CCFF00]" />
-              <span>{settings?.date || '2026 Season Finals'}</span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-display font-bold text-[#0A0A0F] tracking-tight uppercase">
-              Knockout Stage
-            </h1>
-          </div>
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 max-w-6xl mx-auto">
+      {/* 1. HEADER — huge hero like "Live Padel Scores" (no badge, no subtitle,
+          no sub-nav tabs). The Tree/Bracket/List toggle is kept, restyled to
+          the site's pill language. */}
+      <div className="text-center pt-4 sm:pt-6 px-2 pb-4 sm:pb-8">
+        <h2 className="font-display font-bold uppercase tracking-tight text-[#0A0A0F] leading-[0.85] text-7xl sm:text-8xl md:text-9xl lg:text-[10rem]">
+          Knockout
+          <span className="block">Stage</span>
+        </h2>
 
-          {/* Quick Actions */}
-          <div className="flex items-center gap-2">
-            {session?.role === 'admin' && (
-              <button
-                onClick={handleSeedBracket}
-                disabled={isSeeding}
-                className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-blue-300 text-xs font-bold text-slate-900 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
-                title="Seed bracket matches from current group standings"
-              >
-                <Shuffle className={`w-3.5 h-3.5 ${isSeeding ? 'animate-spin text-blue-600' : 'text-slate-600'}`} />
-                <span>{isSeeding ? 'Seeding...' : 'Seed from Standings'}</span>
-              </button>
-            )}
-
-            {/* View Mode Toggle */}
-            <div className="flex items-center bg-white border border-blue-400/60 rounded-xl p-0.5 shadow-sm">
-              <button
-                onClick={() => setViewMode('fotmob')}
-                className={`px-3 py-1 text-xs font-black rounded-lg transition-all cursor-pointer ${
-                  viewMode === 'fotmob'
-                    ? 'bg-[#0A0A0F] text-[#CCFF00] shadow-sm'
-                    : 'text-slate-700 hover:text-slate-950 font-bold'
-                }`}
-              >
-                Tree
-              </button>
-              <button
-                onClick={() => setViewMode('bracket')}
-                className={`px-3 py-1 text-xs font-black rounded-lg transition-all cursor-pointer ${
-                  viewMode === 'bracket'
-                    ? 'bg-[#0A0A0F] text-[#CCFF00] shadow-sm'
-                    : 'text-slate-700 hover:text-slate-950 font-bold'
-                }`}
-              >
-                Bracket
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-1 text-xs font-black rounded-lg transition-all cursor-pointer ${
-                  viewMode === 'list'
-                    ? 'bg-[#0A0A0F] text-[#CCFF00] shadow-sm'
-                    : 'text-slate-700 hover:text-slate-950 font-bold'
-                }`}
-              >
-                List
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* FotMob Sub-Navigation Tabs */}
-        <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto border-b border-slate-900/20 pb-px scrollbar-none text-xs sm:text-sm font-bold">
-          <button
-            onClick={() => onNavigateTab && onNavigateTab('standings')}
-            className="px-4 py-2 text-slate-800 hover:text-slate-950 transition-colors cursor-pointer border-b-2 border-transparent"
-          >
-            Table (Standings)
-          </button>
-          <button
-            onClick={() => setViewMode('fotmob')}
-            className="px-4 py-2 text-[#0A0A0F] font-black border-b-2 border-[#0A0A0F] flex items-center gap-1.5"
-          >
-            <span>Knockout</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#0A0A0F] animate-pulse" />
-          </button>
-          <button
-            onClick={() => onNavigateTab && onNavigateTab('matches')}
-            className="px-4 py-2 text-slate-800 hover:text-slate-950 transition-colors cursor-pointer border-b-2 border-transparent"
-          >
-            Fixtures (Matches)
-          </button>
-          <button
-            onClick={() => onNavigateTab && onNavigateTab('courts')}
-            className="px-4 py-2 text-slate-800 hover:text-slate-950 transition-colors cursor-pointer border-b-2 border-transparent"
-          >
-            Courts
-          </button>
+        <div className="mt-6 sm:mt-8 flex items-center justify-center gap-1.5 p-1.5 bg-white/90 backdrop-blur-md border border-blue-400/60 rounded-2xl shadow-md w-max mx-auto">
+          {session?.role === 'admin' && (
+            <button
+              onClick={handleSeedBracket}
+              disabled={isSeeding}
+              className="px-3 sm:px-4 py-2 rounded-xl bg-[#0A0A0F] text-[#CCFF00] text-xs sm:text-sm font-black tracking-wider uppercase transition-all cursor-pointer whitespace-nowrap"
+              title="Seed bracket matches from current group standings"
+            >
+              <Shuffle className={`w-3.5 h-3.5 inline-block mr-1 ${isSeeding ? 'animate-spin' : ''}`} />
+              {isSeeding ? 'Seeding...' : 'Seed'}
+            </button>
+          )}
+          {([
+            ['fotmob', 'Tree'],
+            ['bracket', 'Bracket'],
+            ['list', 'List'],
+          ] as const).map(([mode, label]) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black tracking-wider uppercase transition-all whitespace-nowrap cursor-pointer ${
+                viewMode === mode
+                  ? 'bg-[#0A0A0F] text-[#CCFF00] shadow-md'
+                  : 'text-slate-800 hover:bg-blue-100 hover:text-slate-950'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* 2. MAIN KNOCKOUT DISPLAY */}
+      {/* 2. MAIN KNOCKOUT DISPLAY — vertical tree (rounds stacked top to
+          bottom) so it fits a phone screen with no horizontal scrolling.
+          Dark ink panel matching the site's card language. */}
       {viewMode === 'fotmob' && (
-        <div className="relative py-6 px-2 sm:px-6 rounded-3xl bg-white border border-blue-300/80 shadow-2xl overflow-x-auto text-slate-900">
-          {/* Subtle dark stadium background grid */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b0a_1px,transparent_1px),linear-gradient(to_bottom,#1e293b0a_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-
-          <div className="relative min-w-[620px] max-w-3xl mx-auto flex flex-col items-center gap-8 py-6">
-            
-            {/* ROW 1: TOP QUARTER-FINALS (QF1, QF2, QF3, QF4) */}
-            <div className="w-full flex items-center justify-around px-2">
-              {/* Pair 1: QF1 and QF2 */}
-              <div className="flex items-center gap-4 sm:gap-6">
-                <div className="flex flex-col items-center">
-                  <span className="text-[10px] font-mono uppercase text-slate-500 font-bold mb-1">QF 1</span>
-                  {renderMatchCard(qf1, 'qf')}
+        <div className="relative px-3 sm:px-6 py-6 sm:py-8 rounded-3xl bg-[#0A0A0F] border-2 border-blue-400/60 shadow-2xl text-white">
+          <div className="relative max-w-md mx-auto flex flex-col items-center">
+            {/* ROUND 1: QUARTER-FINALS (2x2 grid on phones, 4-up from sm) */}
+            <div className="w-full grid grid-cols-2 gap-3 justify-items-center">
+              {([
+                ['QF 1', qf1],
+                ['QF 2', qf2],
+                ['QF 3', qf3],
+                ['QF 4', qf4],
+              ] as const).map(([label, match]) => (
+                <div key={label} className="flex flex-col items-center w-full">
+                  <span className="text-[10px] font-mono uppercase text-zinc-400 font-bold mb-1">{label}</span>
+                  {renderMatchCard(match, 'qf')}
                 </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-[10px] font-mono uppercase text-slate-500 font-bold mb-1">QF 2</span>
-                  {renderMatchCard(qf2, 'qf')}
-                </div>
-              </div>
-
-              {/* Pair 2: QF3 and QF4 */}
-              <div className="flex items-center gap-4 sm:gap-6">
-                <div className="flex flex-col items-center">
-                  <span className="text-[10px] font-mono uppercase text-slate-500 font-bold mb-1">QF 3</span>
-                  {renderMatchCard(qf3, 'qf')}
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-[10px] font-mono uppercase text-slate-500 font-bold mb-1">QF 4</span>
-                  {renderMatchCard(qf4, 'qf')}
-                </div>
-              </div>
+              ))}
             </div>
 
-            {/* CONNECTORS 1: Top Quarter-Finals down into Semi-Finals */}
-            <div className="w-full flex items-center justify-around px-8 -my-5 pointer-events-none">
-              <svg className="w-52 sm:w-64 h-8 text-sky-500" viewBox="0 0 240 32" fill="none">
-                {/* Left fork */}
-                <path
-                  d="M 45 0 V 16 H 120 V 32 M 195 0 V 16 H 120"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="opacity-70"
-                />
-              </svg>
+            {/* Connector into semis */}
+            <div className="w-px h-7 bg-blue-400/60 my-1" />
 
-              <svg className="w-52 sm:w-64 h-8 text-sky-500" viewBox="0 0 240 32" fill="none">
-                {/* Right fork */}
-                <path
-                  d="M 45 0 V 16 H 120 V 32 M 195 0 V 16 H 120"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="opacity-70"
-                />
-              </svg>
+            {/* ROUND 2: SEMI-FINALS */}
+            <div className="w-full grid grid-cols-2 gap-3 justify-items-center">
+              {([
+                ['Semi-Final 1', sf1],
+                ['Semi-Final 2', sf2],
+              ] as const).map(([label, match]) => (
+                <div key={label} className="flex flex-col items-center w-full">
+                  <span className="text-[10px] font-mono uppercase text-zinc-400 font-bold mb-1">{label}</span>
+                  {renderMatchCard(match, 'sf')}
+                </div>
+              ))}
             </div>
 
-            {/* ROW 2: SEMI-FINALS (SF1 & SF2) */}
-            <div className="w-full flex items-center justify-around px-12 sm:px-20">
+            {/* Connector into finals */}
+            <div className="w-px h-7 bg-blue-400/60 my-1" />
+
+            {/* ROUND 3: 3RD PLACE + GRAND FINAL (stacked) */}
+            <div className="w-full flex flex-col items-center gap-5">
               <div className="flex flex-col items-center">
-                <span className="text-[10px] font-mono uppercase text-slate-400 font-bold mb-1">Semi-Final 1</span>
-                {renderMatchCard(sf1, 'sf')}
-              </div>
-
-              <div className="flex flex-col items-center">
-                <span className="text-[10px] font-mono uppercase text-slate-400 font-bold mb-1">Semi-Final 2</span>
-                {renderMatchCard(sf2, 'sf')}
-              </div>
-            </div>
-
-            {/* CONNECTORS 2: Semifinals down to Final & 3rd Place Match */}
-            <div className="w-full flex items-center justify-center -my-5 pointer-events-none">
-              <svg className="w-72 sm:w-96 h-10 text-sky-500" viewBox="0 0 320 40" fill="none">
-                <path
-                  d="M 50 0 V 20 H 160 V 40 M 270 0 V 20 H 160"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="opacity-80"
-                />
-                {/* Branch to 3rd place */}
-                <path
-                  d="M 160 20 H 20 V 40"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeDasharray="3 3"
-                  className="opacity-50"
-                />
-              </svg>
-            </div>
-
-            {/* ROW 3: CENTER CONVERGENCE (3rd Place Match | GRAND FINAL | CHAMPION TROPHY) */}
-            <div className="w-full flex flex-col md:flex-row items-center justify-center gap-6 sm:gap-10 py-2">
-              
-              {/* 3rd Place Match on Left */}
-              <div className="flex flex-col items-center">
-                <div className="text-[10px] font-mono uppercase text-sky-400 font-bold mb-1 flex items-center gap-1">
-                  <Award className="w-3 h-3" />
+                <div className="text-xs sm:text-sm font-mono uppercase text-sky-300 font-black mb-1.5 flex items-center gap-1.5 tracking-widest drop-shadow-[0_0_10px_rgba(56,189,248,0.6)]">
+                  <Award className="w-4 h-4" />
                   <span>3rd Place Playoff</span>
                 </div>
                 {renderMatchCard(thirdPlaceMatch, '3rd')}
               </div>
 
-              {/* Grand Final in Center */}
               <div className="flex flex-col items-center">
-                <div className="text-[11px] font-display uppercase text-amber-400 font-bold mb-1 flex items-center gap-1.5 tracking-wider">
-                  <Crown className="w-3.5 h-3.5" />
+                <div className="text-base sm:text-xl font-display uppercase text-amber-300 font-bold mb-2 flex items-center gap-2 tracking-widest drop-shadow-[0_0_12px_rgba(251,191,36,0.65)]">
+                  <Crown className="w-5 h-5" />
                   <span>Tournament Final</span>
                 </div>
                 {renderMatchCard(finalMatch, 'final')}
               </div>
+            </div>
 
-              {/* CHAMPION TROPHY SPOTLIGHT */}
-              <div className="flex flex-col items-center justify-center p-5 rounded-3xl bg-gradient-to-b from-amber-50 via-white to-amber-50/50 border-2 border-amber-400 shadow-xl shadow-amber-500/10 min-w-[160px] sm:min-w-[180px] text-center group hover:scale-105 transition-transform duration-300">
-                {/* Cup Trophy Icon */}
-                <div className="relative mb-2">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-600 p-0.5 shadow-xl shadow-amber-500/30 flex items-center justify-center">
-                    <div className="w-full h-full bg-[#0A0A0F] rounded-2xl flex items-center justify-center relative overflow-hidden">
-                      <div className="absolute inset-0 bg-amber-500/10 animate-pulse" />
-                      <Trophy className="w-9 h-9 sm:w-11 sm:h-11 text-yellow-300 drop-shadow-md" />
-                    </div>
+            {/* Connector into champion */}
+            <div className="w-px h-7 bg-blue-400/60 my-1" />
+
+            {/* CHAMPION TROPHY SPOTLIGHT */}
+            <div className="flex flex-col items-center justify-center p-5 rounded-3xl bg-gradient-to-b from-amber-400/15 via-zinc-900 to-amber-400/10 border-2 border-amber-400 shadow-xl shadow-amber-500/10 min-w-[160px] sm:min-w-[180px] text-center group hover:scale-105 transition-transform duration-300">
+              {/* Cup Trophy Icon */}
+              <div className="relative mb-2">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-600 p-0.5 shadow-xl shadow-amber-500/30 flex items-center justify-center">
+                  <div className="w-full h-full bg-[#0A0A0F] rounded-2xl flex items-center justify-center relative overflow-hidden">
+                    <div className="absolute inset-0 bg-amber-500/10 animate-pulse" />
+                    <Trophy className="w-9 h-9 sm:w-11 sm:h-11 text-yellow-300 drop-shadow-md" />
                   </div>
-                  {/* Badge emblem overlay */}
-                  {championTeam && (
-                    <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-gradient-to-br from-red-600 to-amber-600 border-2 border-white flex items-center justify-center shadow-lg">
-                      <span className="text-[10px]">🏆</span>
-                    </div>
-                  )}
                 </div>
-
-                {/* Champion Name */}
-                <div className="font-sans text-base sm:text-lg font-bold text-[#0A0A0F] tracking-tight line-clamp-1">
-                  {championTeam ? pairLabel(championTeam) : 'TBD'}
-                </div>
-
-                {/* CHAMPION Label */}
-                <div className="text-xs font-mono font-black text-amber-600 uppercase tracking-widest mt-0.5 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-amber-500" />
-                  <span>CHAMPION</span>
-                </div>
-
+                {/* Badge emblem overlay */}
                 {championTeam && (
-                  <div className="text-[10px] text-slate-500 mt-1 font-mono font-bold">
-                    Group {championTeam.groupId?.replace('group-', '').toUpperCase()}
+                  <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-gradient-to-br from-red-600 to-amber-600 border-2 border-white flex items-center justify-center shadow-lg">
+                    <span className="text-[10px]">🏆</span>
                   </div>
                 )}
               </div>
-            </div>
 
+              {/* Champion Name */}
+              <div className="font-sans text-base sm:text-lg font-bold text-white tracking-tight line-clamp-1">
+                {championTeam ? pairLabel(championTeam) : 'TBD'}
+              </div>
+
+              {/* CHAMPION Label */}
+              <div className="text-xs font-mono font-black text-amber-400 uppercase tracking-widest mt-0.5 flex items-center gap-1">
+                <Sparkles className="w-3 h-3 text-amber-400" />
+                <span>CHAMPION</span>
+              </div>
+
+              {championTeam && (
+                <div className="text-[10px] text-zinc-400 mt-1 font-mono font-bold">
+                  Group {championTeam.groupId?.replace('group-', '').toUpperCase()}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* 3. CLASSIC HORIZONTAL BRACKET VIEW */}
       {viewMode === 'bracket' && (
-        <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 overflow-x-auto">
+        <div className="p-6 rounded-3xl bg-[#0A0A0F] border-2 border-blue-400/60 overflow-x-auto shadow-xl">
           <div className="min-w-[700px] grid grid-cols-3 gap-8 items-center">
             {/* Column 1: Quarter-Finals */}
             <div className="space-y-6">
-              <div className="text-xs font-mono font-black uppercase text-slate-400 tracking-wider flex items-center gap-2 pb-2 border-b border-slate-800">
-                <span className="w-2 h-2 rounded-full bg-slate-400" />
+              <div className="text-xs font-mono font-black uppercase text-[#CCFF00] tracking-wider flex items-center gap-2 pb-2 border-b border-zinc-800">
+                <span className="w-2 h-2 rounded-full bg-[#CCFF00]" />
                 Quarter-Finals
               </div>
               <div className="space-y-4">
@@ -523,7 +400,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
 
             {/* Column 2: Semi-Finals */}
             <div className="space-y-12">
-              <div className="text-xs font-mono font-black uppercase text-slate-400 tracking-wider flex items-center gap-2 pb-2 border-b border-slate-800">
+              <div className="text-xs font-mono font-black uppercase text-[#CCFF00] tracking-wider flex items-center gap-2 pb-2 border-b border-zinc-800">
                 <span className="w-2 h-2 rounded-full bg-sky-400" />
                 Semi-Finals
               </div>
@@ -535,7 +412,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
 
             {/* Column 3: Finals & 3rd Place */}
             <div className="space-y-8">
-              <div className="text-xs font-mono font-black uppercase text-amber-400 tracking-wider flex items-center gap-2 pb-2 border-b border-slate-800">
+              <div className="text-xs font-mono font-black uppercase text-amber-400 tracking-wider flex items-center gap-2 pb-2 border-b border-zinc-800">
                 <Crown className="w-3.5 h-3.5" />
                 Grand Final & 3rd Place
               </div>
@@ -557,31 +434,37 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
       {/* 4. LIST VIEW */}
       {viewMode === 'list' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             {knockoutMatches.map((m) => {
               const court = courts.find((c) => c.id === m.courtId);
               const isFinal = m.round === 'final';
               const is3rd = m.round === '3rd';
               const isLive = m.status === 'live';
+              const t1Wins = m.team1Score !== null && m.team2Score !== null && m.team1Score > m.team2Score;
+              const t2Wins = m.team1Score !== null && m.team2Score !== null && m.team2Score > m.team1Score;
 
               return (
                 <div
                   key={m.id}
                   onClick={() => setSelectedMatch(m)}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                  className={`p-4 rounded-2xl border shadow-xl transition-all cursor-pointer text-slate-900 ${
                     isFinal
-                      ? 'bg-amber-950/20 border-amber-500/40 hover:border-amber-400'
+                      ? 'bg-[#0A0A0F] text-white border-amber-400'
                       : is3rd
-                      ? 'bg-sky-950/20 border-sky-500/40 hover:border-sky-400'
-                      : 'bg-slate-900 border-slate-800 hover:border-slate-700'
+                      ? 'bg-[#0A0A0F] text-white border-sky-400'
+                      : isLive
+                      ? 'bg-[#0A0A0F] text-white border-[#CCFF00]'
+                      : 'bg-white border-blue-300/80 hover:border-blue-400'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-3 text-xs">
-                    <span className="font-mono font-bold text-slate-400">
+                  <div className="flex items-center justify-between mb-3 text-xs font-mono">
+                    <span className={`font-bold uppercase tracking-wider ${isFinal || is3rd || isLive ? 'text-zinc-400' : 'text-blue-700'}`}>
                       Match #{m.matchNumber} · {m.round?.toUpperCase() || 'KO'}
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="text-slate-400 font-mono">{court?.name || 'Center Court'}</span>
+                      <span className={isFinal || is3rd || isLive ? 'text-zinc-400' : 'text-slate-500'}>
+                        {court?.name || 'Center Court'}
+                      </span>
                       {isFinal && (
                         <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black">
                           FINAL
@@ -593,7 +476,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
                         </span>
                       )}
                       {isLive && (
-                        <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">
+                        <span className="px-2 py-0.5 rounded-full bg-[#CCFF00] text-slate-950 text-[10px] font-black animate-pulse">
                           LIVE
                         </span>
                       )}
@@ -602,19 +485,19 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
 
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
-                      <div className="font-bold text-sm text-white">
-                        {pairLabel(m.team1, 'TBD')}
+                      <div className={`font-bold text-sm ${isFinal || is3rd || isLive ? (t1Wins ? 'text-white' : 'text-zinc-400') : t1Wins ? 'text-[#0A0A0F]' : 'text-slate-400'}`}>
+                        {pairLabel(m.team1, 'TBD').replace(' / ', '\u00A0/ ')}
                       </div>
-                      <div className="font-bold text-sm text-white">
-                        {pairLabel(m.team2, 'TBD')}
+                      <div className={`font-bold text-sm ${isFinal || is3rd || isLive ? (t2Wins ? 'text-white' : 'text-zinc-400') : t2Wins ? 'text-[#0A0A0F]' : 'text-slate-400'}`}>
+                        {pairLabel(m.team2, 'TBD').replace(' / ', '\u00A0/ ')}
                       </div>
                     </div>
 
                     <div className="text-right font-mono font-black text-lg space-y-1">
-                      <div className={m.team1Score && m.team2Score && m.team1Score > m.team2Score ? 'text-lime-400' : 'text-slate-400'}>
+                      <div className={(isFinal || is3rd || isLive) ? (t1Wins ? 'text-[#CCFF00]' : 'text-zinc-400') : t1Wins ? 'text-[#0A0A0F]' : 'text-slate-400'}>
                         {m.team1Score !== null ? m.team1Score : '-'}
                       </div>
-                      <div className={m.team1Score && m.team2Score && m.team2Score > m.team1Score ? 'text-lime-400' : 'text-slate-400'}>
+                      <div className={(isFinal || is3rd || isLive) ? (t2Wins ? 'text-[#CCFF00]' : 'text-zinc-400') : t2Wins ? 'text-[#0A0A0F]' : 'text-slate-400'}>
                         {m.team2Score !== null ? m.team2Score : '-'}
                       </div>
                     </div>
