@@ -56,9 +56,6 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
   const currentStandings = standings[selectedGroupId] || [];
   const currentGroup = groups.find((g) => g.id === selectedGroupId);
 
-  const perGroup = settings?.scoring.qualifiersPerGroup ?? 2;
-  const wildcards = settings?.scoring.wildcardQualifiers ?? 0;
-
   // Reference-style hero transition, in two phases:
   //  1) the LIVE PADEL SCORES headline scrolls up at page speed until it
   //     reaches the top of the viewport (no early animation);
@@ -103,14 +100,6 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
     Math.min(1, Math.max(0, (v - pinScroll) / coverDistance))
   );
   const heroOpacity = useTransform(cover, [0, 1], [1, 0]);
-  const qualificationSummary =
-    perGroup === 1
-      ? 'Group winners'
-      : `Top ${perGroup} of each group`;
-  const qualificationText =
-    wildcards > 0
-      ? `${qualificationSummary} plus the ${wildcards} best-placed wildcards advance to the Knockout Stage`
-      : `${qualificationSummary} advance to the Knockout Stage`;
 
   // Format time since completion
   const formatTimeAgo = (isoString?: string) => {
@@ -346,7 +335,7 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                     id={`live-card-${match.id}`}
                     className="rounded-3xl bg-[#0A0A0F] text-white border-2 border-blue-400 shadow-2xl relative overflow-hidden"
                   >
-                    {/* Header — two-tone top band (blue strip over the ink card) */}
+                    {/* Header — two-tone top band (dark blue strip over the ink card) */}
                     <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-3.5 bg-blue-800/50 border-b border-blue-400/40 rounded-t-2xl">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="px-3 py-1 rounded-full bg-[#CCFF00] text-slate-950 text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm shrink-0">
@@ -432,11 +421,8 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                     </div>
 
                     {/* Status ticker */}
-                    {padel?.lastEventMessage && (
-                      <div className="text-[11px] text-blue-300 text-center font-mono font-semibold bg-zinc-800/80 py-1.5 rounded-xl border border-zinc-700">
-                        {padel.lastEventMessage}
-                      </div>
-                    )}
+                    {/* (last-event ticker removed — the card ends after the
+                        current-game points banner) */}
                     </div>
                   </div>
                 );
@@ -447,15 +433,12 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
 
       {/* 4. Group Tabs: GROUP A | GROUP B | GROUP C | GROUP D | GROUP E */}
       <section id="section-groups-standings">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 px-1">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-display font-bold text-[#0A0A0F] uppercase tracking-tight flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-[#0A0A0F]" />
-              Group Stage Standings & Matches
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4 px-1">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <Trophy className="w-6 h-6 sm:w-9 sm:h-9 text-[#0A0A0F] shrink-0" />
+            <h2 className="text-4xl sm:text-5xl font-display font-semibold text-[#0A0A0F] uppercase tracking-tight leading-[0.95]">
+              Group Stage Standings
             </h2>
-            <p className="text-xs font-mono font-bold text-slate-800">
-              {qualificationText}
-            </p>
           </div>
 
           {/* Group Tabs in WTA Pill Container */}
@@ -485,13 +468,9 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
 
         {/* Standings Table for Selected Group */}
         <div className="bg-white border border-blue-300/80 rounded-3xl overflow-hidden shadow-xl mb-8 text-slate-900">
-          <div className="px-6 py-4 bg-[#0A0A0F] text-white flex items-center justify-between">
-            <span className="text-sm sm:text-base font-bold text-[#CCFF00] font-display uppercase tracking-wider">
-              {currentGroup?.name || 'Group'} — Official Standings Table
-            </span>
-            <span className="text-xs font-mono text-zinc-300">
-              Win = {settings?.scoring.pointsForWin ?? 3} pts • Loss ={' '}
-              {settings?.scoring.pointsForLoss ?? 0} pt
+          <div className="px-5 sm:px-7 py-5 sm:py-7 bg-[#0A0A0F] text-white flex items-center">
+            <span className="text-2xl sm:text-4xl font-display font-semibold uppercase tracking-wide text-[#CCFF00] leading-none min-w-0">
+              {currentGroup?.name || 'Group'} — Standings
             </span>
           </div>
 
@@ -499,14 +478,14 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
             <table className="w-full text-left border-collapse" id="table-group-standings">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-mono font-black uppercase tracking-wider text-slate-700">
-                  <th className="py-3.5 px-4 w-12 text-center">Pos</th>
-                  <th className="py-3.5 px-4">Players</th>
-                  <th className="py-3.5 px-3 text-center">MP</th>
-                  <th className="py-3.5 px-3 text-center">W</th>
-                  <th className="py-3.5 px-3 text-center">L</th>
-                  <th className="py-3.5 px-3 text-center font-bold text-slate-800">Diff</th>
-                  <th className="py-3.5 px-4 text-center font-bold text-[#0A0A0F]">Pts</th>
-                  <th className="py-3.5 px-4 text-center">Status</th>
+                  <th className="py-3 px-2.5 w-10 text-center">Pos</th>
+                  <th className="py-3 px-2.5">Players</th>
+                  <th className="py-3 px-2 text-center">MP</th>
+                  <th className="py-3 px-2 text-center">W</th>
+                  <th className="py-3 px-2 text-center">L</th>
+                  <th className="py-3 px-2 text-center font-bold text-slate-800">Diff</th>
+                  <th className="py-3 px-2.5 text-center font-bold text-[#0A0A0F]">Pts</th>
+                  <th className="py-3 px-2.5 text-center hidden sm:table-cell">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
@@ -520,7 +499,7 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                     }`}
                   >
                     {/* Pos */}
-                    <td className="py-3.5 px-4 text-center font-display font-extrabold">
+                    <td className="py-3 px-2.5 text-center font-display font-extrabold">
                       <span
                         className={`inline-flex items-center justify-center w-6 h-6 rounded-lg text-xs ${
                           row.qualified
@@ -532,38 +511,44 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                       </span>
                     </td>
 
-                    {/* Players */}
-                    <td className="py-3.5 px-4">
+                    {/* Players — keep the "/" attached to a name (nbsp before the
+                        slash) so it never floats alone on its own line; the
+                        pairing may still wrap between the two names. */}
+                    <td className="py-3 px-2.5">
                       <div className="font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors">
-                        {pairLabel(row, 'TBD')}
+                        {pairLabel(row, 'TBD').replace(' / ', '\u00A0/ ')}
                       </div>
                     </td>
 
                     {/* MP */}
-                    <td className="py-3.5 px-3 text-center text-slate-700 font-semibold font-mono">
+                    <td className="py-3 px-2 text-center text-slate-700 font-semibold font-mono">
                       {row.matchesPlayed}
                     </td>
 
                     {/* W */}
-                    <td className="py-3.5 px-3 text-center font-bold text-blue-700 font-mono">
+                    <td className="py-3 px-2 text-center font-bold text-blue-700 font-mono">
                       {row.wins}
                     </td>
 
                     {/* L */}
-                    <td className="py-3.5 px-3 text-center text-slate-500 font-mono">{row.losses}</td>
+                    <td className="py-3 px-2 text-center text-slate-500 font-mono">{row.losses}</td>
 
                     {/* Diff */}
-                    <td className="py-3.5 px-3 text-center font-semibold font-mono text-slate-700">
+                    <td className="py-3 px-2 text-center font-semibold font-mono text-slate-700">
                       {row.scoreDiff > 0 ? `+${row.scoreDiff}` : row.scoreDiff}
                     </td>
 
-                    {/* Pts */}
-                    <td className="py-3.5 px-4 text-center font-display font-black text-base text-[#0A0A0F]">
-                      {row.points}
+                    {/* Pts — dark badge with light volt digits so the numbers read
+                        clearly at a glance (matches the black pos/score badges). */}
+                    <td className="py-3 px-2.5 text-center">
+                      <span className="inline-flex items-center justify-center min-w-[1.75rem] h-7 px-1.5 rounded-xl bg-[#0A0A0F] border border-zinc-700 font-display font-black text-sm sm:text-base text-[#CCFF00] leading-none tabular-nums shadow-sm">
+                        {row.points}
+                      </span>
                     </td>
 
-                    {/* Status */}
-                    <td className="py-3.5 px-4 text-center">
+                    {/* Status — hidden on phones (the black pos badge already marks
+                        qualifiers), full pill from sm up. */}
+                    <td className="py-3 px-2.5 text-center hidden sm:table-cell">
                       {row.qualified ? (
                         <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 text-blue-900 border border-blue-300 shadow-sm">
                           <CheckCircle2 className="w-3 h-3 text-blue-700" />
@@ -581,12 +566,17 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
         </div>
 
         {/* 5. Group Matches: Completed & Upcoming */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Completed Matches in Group */}
-          <div className="bg-white border border-blue-300/80 rounded-3xl p-5 sm:p-6 shadow-xl text-slate-900">
-            <h3 className="text-sm font-display font-bold uppercase tracking-wider text-[#0A0A0F] mb-4 flex items-center justify-between pb-3 border-b border-slate-100">
-              <span>Completed Matches ({completedMatchesInGroup.length})</span>
-              <CheckCircle2 className="w-4 h-4 text-blue-600" />
+          <div className="bg-white border border-blue-300/80 rounded-3xl p-4 sm:p-5 shadow-xl text-slate-900">
+            <h3 className="flex items-center justify-between gap-3 pb-3.5 mb-4 border-b border-slate-100">
+              <span className="text-2xl sm:text-3xl font-display font-semibold uppercase tracking-tight leading-none text-[#0A0A0F]">
+                Completed
+              </span>
+              <span className="inline-flex items-center gap-1.5 shrink-0 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider text-slate-700">
+                <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                {completedMatchesInGroup.length} {completedMatchesInGroup.length === 1 ? 'Match' : 'Matches'}
+              </span>
             </h3>
 
             {completedMatchesInGroup.length === 0 ? (
@@ -594,20 +584,22 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                 No completed matches in this group yet.
               </p>
             ) : (
-              <div className="space-y-3">
-                {completedMatchesInGroup.map((match) => (
-                  <div
-                    key={match.id}
-                    id={`completed-match-${match.id}`}
-                    className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 hover:border-blue-400 transition-colors shadow-sm"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between text-xs mb-1 font-mono">
-                        <span className="text-slate-500 text-[11px] font-bold">
+              <div className="space-y-2.5 sm:space-y-3">
+                {completedMatchesInGroup.map((match) => {
+                  const t1Win = (match.team1Score ?? 0) > (match.team2Score ?? 0);
+                  const t2Win = (match.team2Score ?? 0) > (match.team1Score ?? 0);
+                  return (
+                    <div
+                      key={match.id}
+                      id={`completed-match-${match.id}`}
+                      className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-400 transition-colors shadow-sm"
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-2 font-mono">
+                        <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-blue-700 truncate min-w-0">
                           Match #{match.matchNumber} • {match.court?.name || 'Court'}
                         </span>
                         {match.completedAt && (
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-[10px] text-slate-400 shrink-0">
                             {new Date(match.completedAt).toLocaleTimeString([], {
                               hour: '2-digit',
                               minute: '2-digit',
@@ -615,43 +607,46 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center justify-between gap-3">
                         <span
                           onClick={() => match.team1?.id && onSelectTeam(match.team1.id)}
-                          className={`font-extrabold cursor-pointer hover:underline ${
-                            (match.team1Score ?? 0) > (match.team2Score ?? 0)
-                              ? 'text-[#0A0A0F]'
-                              : 'text-slate-500'
+                          className={`flex-1 text-sm sm:text-base font-extrabold leading-snug cursor-pointer hover:underline ${
+                            t1Win ? 'text-[#0A0A0F]' : 'text-slate-400'
                           }`}
                         >
-                          {pairLabel(match.team1, 'TBD')}
+                          {pairLabel(match.team1, 'TBD').replace(' / ', '\u00A0/ ')}
+                          {t1Win && <span className="ml-1">🏆</span>}
                         </span>
-                        <div className="px-2">
+                        <div className="shrink-0">
                           <PadelScoreBadge match={match} />
                         </div>
                         <span
                           onClick={() => match.team2?.id && onSelectTeam(match.team2.id)}
-                          className={`font-extrabold cursor-pointer hover:underline ${
-                            (match.team2Score ?? 0) > (match.team1Score ?? 0)
-                              ? 'text-[#0A0A0F]'
-                              : 'text-slate-500'
+                          className={`flex-1 text-right text-sm sm:text-base font-extrabold leading-snug cursor-pointer hover:underline ${
+                            t2Win ? 'text-[#0A0A0F]' : 'text-slate-400'
                           }`}
                         >
-                          {pairLabel(match.team2, 'TBD')}
+                          {pairLabel(match.team2, 'TBD').replace(' / ', '\u00A0/ ')}
+                          {t2Win && <span className="ml-1">🏆</span>}
                         </span>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
           {/* Upcoming Matches in Group */}
-          <div className="bg-white border border-blue-300/80 rounded-3xl p-5 sm:p-6 shadow-xl text-slate-900">
-            <h3 className="text-sm font-display font-bold uppercase tracking-wider text-[#0A0A0F] mb-4 flex items-center justify-between pb-3 border-b border-slate-100">
-              <span>Upcoming & Scheduled ({upcomingMatchesInGroup.length})</span>
-              <Clock className="w-4 h-4 text-slate-600" />
+          <div className="bg-white border border-blue-300/80 rounded-3xl p-4 sm:p-5 shadow-xl text-slate-900">
+            <h3 className="flex items-center justify-between gap-3 pb-3.5 mb-4 border-b border-slate-100">
+              <span className="text-2xl sm:text-3xl font-display font-semibold uppercase tracking-tight leading-none text-[#0A0A0F]">
+                Upcoming
+              </span>
+              <span className="inline-flex items-center gap-1.5 shrink-0 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider text-slate-700">
+                <Clock className="w-3.5 h-3.5 text-slate-600" />
+                {upcomingMatchesInGroup.length} {upcomingMatchesInGroup.length === 1 ? 'Match' : 'Matches'}
+              </span>
             </h3>
 
             {upcomingMatchesInGroup.length === 0 ? (
@@ -659,37 +654,37 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                 All group matches completed!
               </p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2.5 sm:space-y-3">
                 {upcomingMatchesInGroup.map((match) => (
                   <div
                     key={match.id}
                     id={`upcoming-match-${match.id}`}
-                    className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 hover:border-blue-400 transition-colors shadow-sm"
+                    className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-400 transition-colors shadow-sm"
                   >
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between text-xs mb-1.5 font-mono">
-                        <span className="text-slate-500 text-[11px] font-bold">
-                          Match #{match.matchNumber} • {match.court?.name || 'TBD'}
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#0A0A0F] text-[#CCFF00]">
-                          {match.scheduledTime || 'Upcoming'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span
-                          onClick={() => match.team1?.id && onSelectTeam(match.team1.id)}
-                          className="font-extrabold text-[#0A0A0F] cursor-pointer hover:underline"
-                        >
-                          {pairLabel(match.team1, 'TBD')}
-                        </span>
-                        <span className="text-xs font-mono font-bold text-slate-400 px-2 uppercase">vs</span>
-                        <span
-                          onClick={() => match.team2?.id && onSelectTeam(match.team2.id)}
-                          className="font-extrabold text-[#0A0A0F] cursor-pointer hover:underline"
-                        >
-                          {pairLabel(match.team2, 'TBD')}
-                        </span>
-                      </div>
+                    <div className="flex items-center justify-between gap-2 mb-2 font-mono">
+                      <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-blue-700 truncate min-w-0">
+                        Match #{match.matchNumber} • {match.court?.name || 'TBD'}
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#0A0A0F] text-[#CCFF00] shrink-0">
+                        {match.scheduledTime || 'Upcoming'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        onClick={() => match.team1?.id && onSelectTeam(match.team1.id)}
+                        className="flex-1 text-sm sm:text-base font-extrabold text-[#0A0A0F] leading-snug cursor-pointer hover:underline"
+                      >
+                        {pairLabel(match.team1, 'TBD').replace(' / ', '\u00A0/ ')}
+                      </span>
+                      <span className="shrink-0 px-2 py-0.5 rounded-full bg-blue-100 border border-blue-200 text-[9px] font-mono font-black text-blue-800 uppercase tracking-wider">
+                        vs
+                      </span>
+                      <span
+                        onClick={() => match.team2?.id && onSelectTeam(match.team2.id)}
+                        className="flex-1 text-right text-sm sm:text-base font-extrabold text-[#0A0A0F] leading-snug cursor-pointer hover:underline"
+                      >
+                        {pairLabel(match.team2, 'TBD').replace(' / ', '\u00A0/ ')}
+                      </span>
                     </div>
                   </div>
                 ))}

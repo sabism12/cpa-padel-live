@@ -276,30 +276,31 @@
 
   body {
     font-family: var(--font-sans);
-    /* Page wash, matching the reference's vivid royal-blue canvas:
-       saturated blue at the top -> light blue/white through the middle of the
-       content (so dark ink stays legible and white cards blend) -> saturated
-       blue returning near the footer. Set on <body> so it spans the document. */
-    background-color: #2e6bff;
+    /* Page wash, based on the user's grabient reference (grabient.com
+       _gMugGwgL2f5GgQVf0JgE-f-Hf8Sf-Tf0Mf3BcpvvwIgA): a 135deg gradient —
+       deep blue -> teal -> green — with a very broad, bright milky band
+       across the centre. Extra easing stops on every shoulder spread each
+       colour step over a long distance, so the whole sweep reads as one
+       continuous, feathered wash with no perceptible bands or edges.
+       Painted across the full document height, so the colours drift
+       blue -> milky centre -> green on scroll. */
+    background-color: #4141ff;
     background-image: linear-gradient(
-      180deg,
-      #2e6bff 0%,
-      #2f6fff 4%,
-      #346fff 9%,
-      #3d76ff 15%,
-      #4a82ff 22%,
-      #5c90ff 30%,
-      #6f9dff 38%,
-      #84abff 46%,
-      #93b6ff 52%,
-      #84abff 58%,
-      #6f9dff 66%,
-      #5c90ff 74%,
-      #4a82ff 80%,
-      #3d76ff 85%,
-      #2e6bff 90%,
-      #2a63f2 95%,
-      #2e6bff 100%
+      135deg,
+      #4141ff 0.000%,
+      #4f56f2 8.000%,
+      #3f80e8 16.000%,
+      #2ea7c9 24.000%,
+      #55c3d6 32.000%,
+      #93e0dc 40.000%,
+      #c8eef0 46.000%,
+      #f2fbf9 50.000%,
+      #dff5dd 54.000%,
+      #c4ecb4 60.000%,
+      #a8ee85 68.000%,
+      #93f85c 76.000%,
+      #83fc37 84.000%,
+      #83fc37 100.000%
     );
     background-repeat: no-repeat;
     color: #0a0a0f;
