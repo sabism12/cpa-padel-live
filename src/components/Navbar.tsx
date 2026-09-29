@@ -17,10 +17,14 @@ import {
 import { Court, Group, Team } from '../types';
 import { EnrichedMatch } from '../api';
 import actionSquareImg from '../assets/images/padel_action_square_1790159179818.jpg';
-import rankingsIconUrl from '../assets/rankings-icon.svg';
+import rankingsIconSvgRaw from '../assets/rankings-icon.svg?raw';
 import { pairLabel } from '../utils/teamDisplay';
 
 export type NavTab = 'results' | 'courts' | 'standings' | 'knockout' | 'matches' | 'teams' | 'score' | 'admin';
+
+// Build the data URI in JS: the SVG ships inside the bundle, so no separate
+// asset request can ever fail or get cached/stale independently.
+const rankingsIconDataUri = `data:image/svg+xml,${encodeURIComponent(rankingsIconSvgRaw)}`;
 
 interface NavbarProps {
   activeTab: NavTab;
@@ -290,7 +294,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {/* Custom rankings icon (bundled+hashed, cannot 404 from a
                       stale asset path). */}
                   <img
-                    src={rankingsIconUrl}
+                    src={rankingsIconDataUri}
                     alt=""
                     loading="lazy"
                     className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
