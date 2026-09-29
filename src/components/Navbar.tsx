@@ -17,6 +17,7 @@ import {
 import { Court, Group, Team } from '../types';
 import { EnrichedMatch } from '../api';
 import actionSquareImg from '../assets/images/padel_action_square_1790159179818.jpg';
+import rankingsIconUrl from '../assets/rankings-icon.svg';
 import { pairLabel } from '../utils/teamDisplay';
 
 export type NavTab = 'results' | 'courts' | 'standings' | 'knockout' | 'matches' | 'teams' | 'score' | 'admin';
@@ -286,10 +287,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                       : 'border-white/80 hover:border-blue-500 hover:scale-102'
                   }`}
                 >
-                  {/* Custom rankings icon (optimised SVG, full-bleed). */}
+                  {/* Custom rankings icon (bundled+hashed, cannot 404 from a
+                      stale asset path). */}
                   <img
-                    src="/rankings-icon.svg"
-                    alt="CPA Rankings"
+                    src={rankingsIconUrl}
+                    alt=""
                     loading="lazy"
                     className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
