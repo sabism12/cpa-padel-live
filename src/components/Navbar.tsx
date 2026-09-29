@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Menu,
   Search,
@@ -77,26 +77,66 @@ export const Navbar: React.FC<NavbarProps> = ({
       )
     : [];
 
-  // 17 realistic WTA-style tour notification items (matching badge 17 in screenshot)
-  const notifications = [
-    { id: '1', title: 'Grand Final Completed', desc: 'Hamood / Hossam defeat Jamshi / Hisham 6-3', time: '12m ago', type: 'final' },
-    { id: '2', title: '3rd Place Playoff', desc: 'Derrick / Elvis edge Adil / Fawaz 6-4', time: '35m ago', type: 'result' },
-    { id: '3', title: 'Court 1 Live Now', desc: 'Championship Trophy Ceremony underway', time: 'Just now', type: 'live' },
-    { id: '4', title: 'Tournament MVP Announced', desc: 'Player of the 2026 Season awarded', time: '1h ago', type: 'news' },
-    { id: '5', title: 'Semi-Final 2 Result', desc: 'Jamshi / Hisham def. Adil / Fawaz 6-4', time: '2h ago', type: 'result' },
-    { id: '6', title: 'Semi-Final 1 Result', desc: 'Hamood / Hossam def. Derrick / Elvis 6-2', time: '2h ago', type: 'result' },
-    { id: '7', title: 'Court 2 Match Ended', desc: 'Suhaim / Zubair finished final classification', time: '3h ago', type: 'court' },
-    { id: '8', title: 'Group A Standings Locked', desc: 'Hamood / Hossam qualify as Seed #1', time: '4h ago', type: 'standings' },
-    { id: '9', title: 'Group B Standings Locked', desc: 'Derrick / Elvis qualify as Seed #1', time: '4h ago', type: 'standings' },
-    { id: '10', title: 'Group C Standings Locked', desc: 'Jamshi / Hisham top group with 12 points', time: '5h ago', type: 'standings' },
-    { id: '11', title: 'Group D Standings Locked', desc: 'Adil / Fawaz advance to QF', time: '5h ago', type: 'standings' },
-    { id: '12', title: 'Court 3 Scheduled Match', desc: 'Faisal / Muhammed vs Mohammed Jalil / Abdullah Mahmoud completed', time: '5h ago', type: 'court' },
-    { id: '13', title: 'Fastest Smash Recorded', desc: '142 km/h smash logged', time: '6h ago', type: 'stat' },
-    { id: '14', title: 'Attendance Record', desc: 'Full capacity of 4,200 spectators reached', time: '6h ago', type: 'news' },
-    { id: '15', title: 'Official Scorekeeper Active', desc: 'Live electronic line scoring verified', time: '7h ago', type: 'system' },
-    { id: '16', title: '1969 Indoor Padel Link Active', desc: 'Partner broadcast live stream ready', time: '8h ago', type: 'system' },
-    { id: '17', title: 'Tournament Opened', desc: 'Official Welcome Ceremony complete', time: '9h ago', type: 'system' },
-  ];
+  // Alerts derived from real match data, so they mirror the tournament:
+  // live courts first, then latest results, then upcoming fixtures.
+  const formatAge = (iso?: string) => {
+    if (!iso) return 'recently';
+    const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins === 1) return '1 minute ago';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  };
+
+  const notifications = useMemo(() => {
+    const items: { id: string; title: string; desc: string; time: string; live?: boolean }[] = [];
+
+    // Live matches
+    matches
+      .filter((m) => m.status === 'live')
+      .forEach((m) => {
+        items.push({
+          id: `live-${m.id}`,
+          title: `${m.court?.name || 'Court'} — Live Now`,
+          desc: `${pairLabel(m.team1, 'TBD')} vs ${pairLabel(m.team2, 'TBD')} • Games ${m.padelState?.team1Games ?? 0}–${m.padelState?.team2Games ?? 0}`,
+          time: 'Live now',
+          live: true,
+        });
+      });
+
+    // Latest results (newest first)
+    matches
+      .filter((m) => m.status === 'completed')
+      .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''))
+      .slice(0, 8)
+      .forEach((m) => {
+        const winner =
+          (m.team1Score ?? 0) > (m.team2Score ?? 0) ? m.team1 : m.team2;
+        items.push({
+          id: `result-${m.id}`,
+          title: `Result • ${m.court?.name || 'Match ' + m.matchNumber}`,
+          desc: `${pairLabel(m.team1, 'TBD')} ${m.team1Score ?? 0} – ${m.team2Score ?? 0} ${pairLabel(m.team2, 'TBD')} • ${winner ? pairLabel(winner, '') + ' won' : ''}`,
+          time: formatAge(m.completedAt),
+        });
+      });
+
+    // Upcoming fixtures
+    matches
+      .filter((m) => m.status === 'scheduled' || m.status === 'ready')
+      .slice(0, 5)
+      .forEach((m) => {
+        items.push({
+          id: `up-${m.id}`,
+          title: `Upcoming • ${m.court?.name || 'Court'}`,
+          desc: `${pairLabel(m.team1, 'TBD')} vs ${pairLabel(m.team2, 'TBD')} • ${m.scheduledTime || 'Time TBD'}`,
+          time: 'Soon',
+        });
+      });
+
+    return items.slice(0, 15);
+  }, [matches]);
 
   const handleSelectNav = (tab: NavTab) => {
     setActiveTab(tab);
@@ -189,9 +229,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                   title="Notifications"
                 >
                   <Bell className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.2]" />
-                  {/* Vibrant emerald circular badge matching screenshot */}
+                  {/* Live alert count badge (real tournament data) */}
                   <span className="absolute top-1 right-0.5 min-w-4 h-4 sm:min-w-5 sm:h-5 px-1 bg-[#CCFF00] text-slate-950 font-black text-[10px] sm:text-[11px] rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                    17
+                    {notifications.length}
                   </span>
                 </button>
 
@@ -204,23 +244,36 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <span className="font-display font-bold text-sm text-white">Live Tour Alerts</span>
                       </div>
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/20 text-[#CCFF00] font-bold">
-                        17 Updates
+                        {notifications.length} Updates
                       </span>
                     </div>
 
                     <div className="max-h-80 overflow-y-auto space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
-                      {notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          className="p-2 rounded-xl hover:bg-slate-900 transition-colors text-left text-xs cursor-pointer"
-                        >
-                          <div className="flex items-center justify-between text-[11px] font-bold text-white mb-0.5">
-                            <span>{n.title}</span>
-                            <span className="text-[10px] font-mono text-slate-500">{n.time}</span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">{n.desc}</p>
+                      {notifications.length === 0 ? (
+                        <div className="text-center py-6 text-[11px] text-slate-500 font-mono">
+                          No match updates yet — check back soon.
                         </div>
-                      ))}
+                      ) : (
+                        notifications.map((n) => (
+                          <div
+                            key={n.id}
+                            className="p-2 rounded-xl hover:bg-slate-900 transition-colors text-left text-xs cursor-pointer"
+                          >
+                            <div className="flex items-center justify-between text-[11px] font-bold text-white mb-0.5 gap-2">
+                              <span className={`truncate flex items-center gap-1.5 ${n.live ? 'text-[#CCFF00]' : ''}`}>
+                                {n.live && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse shrink-0" />
+                                )}
+                                {n.title}
+                              </span>
+                              <span className={`text-[10px] font-mono shrink-0 ${n.live ? 'text-[#CCFF00]' : 'text-slate-500'}`}>
+                                {n.time}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-400">{n.desc}</p>
+                          </div>
+                        ))
+                      )}
                     </div>
 
                     <div className="pt-2 mt-2 border-t border-slate-800 text-center">
