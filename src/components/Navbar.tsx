@@ -17,6 +17,7 @@ import {
 import { Court, Group, Team } from '../types';
 import { EnrichedMatch } from '../api';
 import actionSquareImg from '../assets/images/padel_action_square_1790159179818.jpg';
+import knockoutsIconSvgRaw from '../assets/knockouts-icon.svg?raw';
 import courtsIconSvgRaw from '../assets/courts-icon.svg?raw';
 import rankingsIconSvgRaw from '../assets/rankings-icon.svg?raw';
 import { pairLabel } from '../utils/teamDisplay';
@@ -27,6 +28,7 @@ export type NavTab = 'results' | 'courts' | 'standings' | 'knockout' | 'matches'
 // asset request can ever fail or get cached/stale independently.
 const rankingsIconDataUri = `data:image/svg+xml,${encodeURIComponent(rankingsIconSvgRaw)}`;
 const courtsIconDataUri = `data:image/svg+xml,${encodeURIComponent(courtsIconSvgRaw)}`;
+const knockoutsIconDataUri = `data:image/svg+xml,${encodeURIComponent(knockoutsIconSvgRaw)}`;
 
 interface NavbarProps {
   activeTab: NavTab;
@@ -386,32 +388,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
 
-              {/* Widget 4: KNOCKOUTS (White card with crossed-swords bracket icon & CPA KNOCKOUTS) */}
+              {/* Widget 4: KNOCKOUTS (custom full-bleed icon) */}
               <div
                 onClick={() => handleSelectNav('knockout')}
                 className="group flex flex-col items-center cursor-pointer select-none"
               >
                 <div
-                  className={`w-18 h-18 sm:w-20 sm:h-20 rounded-2xl p-2 bg-white border-2 transition-all duration-200 flex flex-col items-center justify-center shadow-lg relative overflow-hidden text-center ${
+                  className={`w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-white border-2 transition-all duration-200 shadow-lg relative overflow-hidden ${
                     activeTab === 'knockout'
                       ? 'border-zinc-700 scale-105'
                       : 'border-zinc-300 hover:border-blue-500 hover:scale-102'
                   }`}
                 >
-                  {/* Bracket corner ticks (single-elimination tree hint) */}
-                  <span className="absolute top-1.5 left-1.5 w-2 h-2 border-t-[1.5px] border-l-[1.5px] border-slate-400/70 rounded-tl-sm" />
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 border-t-[1.5px] border-r-[1.5px] border-slate-400/70 rounded-tr-sm" />
-                  <span className="absolute bottom-1.5 left-1.5 w-2 h-2 border-b-[1.5px] border-l-[1.5px] border-slate-400/70 rounded-bl-sm" />
-                  <span className="absolute bottom-1.5 right-1.5 w-2 h-2 border-b-[1.5px] border-r-[1.5px] border-slate-400/70 rounded-br-sm" />
-                  <div className="w-9 h-9 rounded-xl bg-[#0A0A0F] flex items-center justify-center mb-1 shadow-sm">
-                    <Swords className="w-5 h-5 text-[#CCFF00]" />
-                  </div>
-                  <span className="relative text-[10px] sm:text-[11px] font-display font-bold uppercase text-[#0A0A0F] leading-none">
-                    CPA
-                  </span>
-                  <span className="relative text-[9px] sm:text-[10px] font-display font-bold uppercase text-blue-700 leading-none">
-                    KNOCKOUTS
-                  </span>
+                  <img
+                    src={knockoutsIconDataUri}
+                    alt="CPA Padel Knockouts icon"
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
 
                 <div className="mt-1.5 text-[11px] font-mono font-extrabold uppercase tracking-wide text-slate-950">
