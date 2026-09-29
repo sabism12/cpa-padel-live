@@ -326,17 +326,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                     loading="lazy"
                     className="w-full h-full object-cover"
                   />
-                  {/* Scrim + live broadcast badge */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-slate-950/20" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="relative flex items-center gap-1 px-2 py-1 rounded-full bg-[#CCFF00] shadow-md">
-                      <span className="relative flex w-2 h-2">
-                        <span className="absolute inline-flex w-full h-full rounded-full bg-slate-950 opacity-60 animate-ping" />
-                        <span className="relative inline-flex w-2 h-2 rounded-full bg-slate-950" />
-                      </span>
-                      <Radio className="w-3 h-3 text-slate-950" />
-                    </div>
-                  </div>
                 </div>
 
                 <div className="mt-1.5 text-[11px] font-mono font-extrabold uppercase tracking-wide text-slate-950">
