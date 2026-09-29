@@ -344,16 +344,16 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                   <div
                     key={match.id}
                     id={`live-card-${match.id}`}
-                    className="rounded-3xl bg-[#0A0A0F] text-white border-2 border-blue-400 p-4 sm:p-6 shadow-2xl relative overflow-hidden space-y-3 sm:space-y-4"
+                    className="rounded-3xl bg-[#0A0A0F] text-white border-2 border-blue-400 shadow-2xl relative overflow-hidden"
                   >
-                    {/* Header */}
-                    <div className="flex items-center justify-between pb-3 border-b border-zinc-700/60">
-                      <div className="flex items-center gap-2">
+                    {/* Header — two-tone top band (blue strip over the ink card) */}
+                    <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-3.5 bg-blue-800/50 border-b border-blue-400/40 rounded-t-2xl">
+                      <div className="flex items-center gap-2 min-w-0">
                         <span className="px-3 py-1 rounded-full bg-[#CCFF00] text-slate-950 text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm shrink-0">
                           <span className="w-2 h-2 rounded-full bg-slate-950 animate-pulse" />
                           LIVE
                         </span>
-                        <span className="px-2.5 py-1 rounded-full bg-blue-500/15 border border-blue-400/30 text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider text-blue-300 truncate min-w-0">
+                        <span className="px-2.5 py-1 rounded-full bg-blue-500/20 border border-blue-400/40 text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider text-blue-200 truncate min-w-0">
                           {match.court?.name || 'Assigned Court'}
                         </span>
                       </div>
@@ -362,6 +362,8 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                       </span>
                     </div>
 
+                    {/* Body */}
+                    <div className="px-4 sm:px-6 py-3 sm:py-4 space-y-3 sm:space-y-4">
                     {/* Teams & Games Count */}
                     <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                       {/* Team 1 */}
@@ -435,6 +437,7 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                         {padel.lastEventMessage}
                       </div>
                     )}
+                    </div>
                   </div>
                 );
               })}
