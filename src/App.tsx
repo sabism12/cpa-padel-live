@@ -130,10 +130,16 @@ export default function App() {
 
   // Reference to prevent concurrent overlapping fetches
   const isFetchingRef = useRef<boolean>(false);
+  // Set when an update arrives mid-fetch, so we fetch once more afterwards
+  // instead of dropping it (the in-flight response may predate the change).
+  const refetchQueuedRef = useRef<boolean>(false);
 
   // Primary data fetcher: Uses high-speed single-request /api/bootstrap endpoint
   const loadAllData = useCallback(async (isInitial = false) => {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+      refetchQueuedRef.current = true;
+      return;
+    }
     isFetchingRef.current = true;
 
     try {
@@ -193,6 +199,10 @@ export default function App() {
         setLoading(false);
         setIsSyncing(false);
       }
+      if (refetchQueuedRef.current) {
+        refetchQueuedRef.current = false;
+        void loadAllData(false);
+      }
     }
   }, []);
 
@@ -232,41 +242,92 @@ export default function App() {
       });
   }, [session?.token]);
 
-  // 16. Real-Time Updates: Server-Sent Events (SSE) + Background Polling Fallback
+  // Real-time updates. The server pushes a message over SSE whenever anything
+  // changes; we then refetch once. Polling is only a fallback while the live
+  // connection is down, so a crowd of spectators doesn't hammer the server.
   useEffect(() => {
+    const SSE_DEBOUNCE_MS = 300;
+    const FALLBACK_POLL_MS = 15000;
+    const RECONNECT_MS = 5000;
+    // Render's free plan sleeps without inbound requests; SSE heartbeats are
+    // outbound, so make one quiet request every 5 minutes while visible.
+    const KEEP_AWAKE_MS = 5 * 60 * 1000;
+
     let eventSource: EventSource | null = null;
-    let pollTimer: any = null;
+    let debounceTimer: number | null = null;
+    let reconnectTimer: number | null = null;
+    let stopped = false;
 
-    try {
-      eventSource = new EventSource('/api/live-events');
+    const isVisible = () => document.visibilityState === 'visible';
+    const isLive = () => eventSource?.readyState === EventSource.OPEN;
 
+    // Several updates in a burst (rapid taps) trigger a single refetch.
+    const scheduleRefresh = () => {
+      if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => {
+        debounceTimer = null;
+        void loadAllData(false);
+      }, SSE_DEBOUNCE_MS);
+    };
+
+    const connect = () => {
+      if (stopped) return;
+      try {
+        eventSource = new EventSource('/api/live-events');
+      } catch {
+        eventSource = null;
+        return;
+      }
+      // Fires on first connect and after every automatic reconnect: catch up
+      // on anything missed while the connection was down.
+      eventSource.onopen = () => scheduleRefresh();
       eventSource.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'connected') return;
-          // When a score is updated on the server, refresh all data immediately!
-          loadAllData(false);
+          if (JSON.parse(event.data)?.type === 'connected') return;
         } catch {
-          // ignore parse errors
+          // not JSON; still treat it as a change notification
+        }
+        scheduleRefresh();
+      };
+      eventSource.onerror = () => {
+        // The browser reconnects by itself while readyState is CONNECTING.
+        // It gives up only when CLOSED, so then we reconnect ourselves.
+        if (eventSource?.readyState === EventSource.CLOSED && reconnectTimer === null) {
+          reconnectTimer = window.setTimeout(() => {
+            reconnectTimer = null;
+            connect();
+          }, RECONNECT_MS);
         }
       };
+    };
 
-      eventSource.onerror = () => {
-        // SSE error, fallback will handle
-        eventSource?.close();
-      };
-    } catch {
-      // ignore
-    }
+    connect();
 
-    // 4-second Polling fallback to guarantee zero missed scores on any device
-    pollTimer = setInterval(() => {
-      loadAllData(false);
-    }, 4000);
+    const pollTimer = window.setInterval(() => {
+      if (isVisible() && !isLive()) void loadAllData(false);
+    }, FALLBACK_POLL_MS);
+
+    const keepAwakeTimer = window.setInterval(() => {
+      if (isVisible()) void loadAllData(false);
+    }, KEEP_AWAKE_MS);
+
+    // Coming back to the tab (phone unlocked, app switched): refresh at once.
+    const onVisible = () => {
+      if (isVisible()) void loadAllData(false);
+    };
+    const onOnline = () => void loadAllData(false);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', onOnline);
 
     return () => {
-      if (eventSource) eventSource.close();
-      if (pollTimer) clearInterval(pollTimer);
+      stopped = true;
+      eventSource?.close();
+      if (debounceTimer !== null) window.clearTimeout(debounceTimer);
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+      window.clearInterval(pollTimer);
+      window.clearInterval(keepAwakeTimer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onOnline);
     };
   }, [loadAllData]);
 
@@ -425,7 +486,7 @@ export default function App() {
               <span>Refresh Now</span>
             </button>
             <span>&bull;</span>
-            <span className="uppercase tracking-wider">CPA Padel Tour &copy; 2026</span>
+            <span className="uppercase tracking-wider">CPA – India Padel Tour Qatar &copy; 2026</span>
           </div>
         </div>
       </footer>

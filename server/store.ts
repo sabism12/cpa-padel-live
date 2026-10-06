@@ -26,6 +26,21 @@ interface TournamentState {
   formatVersion?: number;
   /** Authoritative Live Group Draw state (optional for older saves). */
   draw?: DrawStateRecord;
+  /**
+   * Live toss results (bylaw §4), keyed by tossPairKey(teamA, teamB) with the
+   * winning team id as value. Only consulted when points and game difference
+   * are both level.
+   */
+  tossWinners?: Record<string, string>;
+}
+
+/** `submittedBy` markers so a team's absence can be undone precisely. */
+const WALKOVER_BY_ADMIN = 'Walkover (admin)';
+const WALKOVER_BY_ABSENCE = 'Walkover (team did not come)';
+
+/** Order-independent key for a pair of teams in the toss table. */
+function tossPairKey(teamA: string, teamB: string): string {
+  return [teamA, teamB].sort().join('|');
 }
 
 /**
@@ -68,12 +83,55 @@ function applyOfficialScheduleV6(state: any): boolean {
   return true;
 }
 
-/** Shared standings ordering: points -> game diff -> games won -> pairing. */
-function compareStandingsRows(a: StandingsRow, b: StandingsRow): number {
+/** True when bylaw §4 cannot separate two teams without a live toss. */
+function levelOnPointsAndDiff(a: StandingsRow, b: StandingsRow): boolean {
+  return a.points === b.points && a.scoreDiff === b.scoreDiff;
+}
+
+/**
+ * Standings ordering per bylaw §4: points -> overall game difference -> live
+ * toss. Teams still level with no toss recorded fall back to name order for a
+ * stable display only; they are flagged with `tossPending` (see markTossPending).
+ */
+function compareStandingsRows(
+  a: StandingsRow,
+  b: StandingsRow,
+  tossWinners: Record<string, string> = {}
+): number {
   if (b.points !== a.points) return b.points - a.points;
   if (b.scoreDiff !== a.scoreDiff) return b.scoreDiff - a.scoreDiff;
-  if (b.gamesWon !== a.gamesWon) return b.gamesWon - a.gamesWon;
+  const tossWinner = tossWinners[tossPairKey(a.teamId, b.teamId)];
+  if (tossWinner === a.teamId) return -1;
+  if (tossWinner === b.teamId) return 1;
   return a.teamName.localeCompare(b.teamName);
+}
+
+/**
+ * Flag teams that need a live toss. A toss only matters across a "cut": the
+ * line between index cut-1 and cut (e.g. between 1st and 2nd in a group).
+ * When the teams either side of a cut are level, every team level with them
+ * joins the toss, and neighbours still unresolved by a recorded toss are flagged.
+ */
+function markTossPending(
+  sortedRows: StandingsRow[],
+  label: string,
+  tossWinners: Record<string, string>,
+  cuts: number[]
+) {
+  for (const cut of cuts) {
+    const above = sortedRows[cut - 1];
+    const below = sortedRows[cut];
+    if (!above || !below || !levelOnPointsAndDiff(above, below)) continue;
+
+    const level = sortedRows.filter((row) => levelOnPointsAndDiff(row, below));
+    for (let i = 0; i < level.length - 1; i++) {
+      const a = level[i];
+      const b = level[i + 1];
+      if (tossWinners[tossPairKey(a.teamId, b.teamId)]) continue;
+      a.tossPending ??= label;
+      b.tossPending ??= label;
+    }
+  }
 }
 
 /**
@@ -604,6 +662,7 @@ class TournamentStore {
       delete match.completedAt;
       delete match.submittedBy;
       delete match.seqLog;
+      delete match.walkover;
       match.matchVersion = 0;
       match.status = 'scheduled';
 
@@ -618,13 +677,166 @@ class TournamentStore {
       matchesReset++;
     }
 
+    // Toss results belong to the old standings.
+    this.state.tossWinners = {};
+    // Absence walkovers were just cleared, so every team is back in.
+    for (const team of this.state.teams) delete team.withdrawn;
+
     this.notifyUpdates();
     return { matchesReset, knockoutReset };
+  }
+
+  /**
+   * Record a live toss (bylaw §4): `winnerId` won against every team in
+   * `loserIds`. For a 3-way tie, record the first toss winner against both
+   * others, then the next toss between the remaining two.
+   */
+  public recordToss(winnerId: string, loserIds: string[]): boolean {
+    const known = new Set(this.state.teams.map((t) => t.id));
+    const losers = loserIds.filter((id) => id !== winnerId && known.has(id));
+    if (!known.has(winnerId) || losers.length === 0) return false;
+
+    const tossWinners = { ...(this.state.tossWinners || {}) };
+    for (const loserId of losers) {
+      tossWinners[tossPairKey(winnerId, loserId)] = winnerId;
+    }
+    this.state.tossWinners = tossWinners;
+    this.notifyUpdates();
+    return true;
+  }
+
+  /** Forget every recorded toss result. */
+  public clearTosses(): void {
+    this.state.tossWinners = {};
+    this.notifyUpdates();
+  }
+
+  /**
+   * Walkover (bylaw §6). 'team1'/'team2' records a 6-0 win for that side;
+   * 'both' records a loss for both teams with no games; null clears the W/O
+   * and returns the match to scheduled.
+   */
+  public setWalkover(matchId: string, outcome: 'team1' | 'team2' | 'both' | null): Match | null {
+    const match = this.state.matches.find((m) => m.id === matchId);
+    if (!match) return null;
+    this.applyWalkover(match, outcome, WALKOVER_BY_ADMIN);
+    this.notifyUpdates();
+    return match;
+  }
+
+  /**
+   * Mark a team as not coming (or back again). Every unplayed match of the
+   * team becomes a 6-0 walkover to its opponent (or 'both' if the opponent is
+   * also absent). Results already played are kept. Undoing it clears only the
+   * walkovers this action created.
+   */
+  public setTeamWithdrawn(teamId: string, withdrawn: boolean): { team: Team; matchesChanged: number } | null {
+    const team = this.state.teams.find((t) => t.id === teamId);
+    if (!team) return null;
+
+    if (withdrawn) team.withdrawn = true;
+    else delete team.withdrawn;
+
+    const isAbsent = (id: string) => !!this.state.teams.find((t) => t.id === id)?.withdrawn;
+    let matchesChanged = 0;
+
+    for (const match of this.state.matches) {
+      const side = match.team1Id === teamId ? 'team1' : match.team2Id === teamId ? 'team2' : null;
+      if (!side) continue;
+      const opponentId = side === 'team1' ? match.team2Id : match.team1Id;
+      if (!opponentId) continue; // knockout slot not decided yet
+      const opponentSide = side === 'team1' ? 'team2' : 'team1';
+
+      if (withdrawn) {
+        // Only unplayed matches change; finished results stay on the board.
+        if (match.status === 'completed' || match.status === 'cancelled') {
+          // ...unless it is a walkover this same action created earlier, where
+          // the opponent may now also be absent.
+          if (match.submittedBy !== WALKOVER_BY_ABSENCE) continue;
+        }
+        this.applyWalkover(match, isAbsent(opponentId) ? 'both' : opponentSide, WALKOVER_BY_ABSENCE);
+        matchesChanged++;
+      } else {
+        if (match.submittedBy !== WALKOVER_BY_ABSENCE) continue;
+        // Opponent still absent: this team now wins by walkover instead.
+        this.applyWalkover(match, isAbsent(opponentId) ? side : null, WALKOVER_BY_ABSENCE);
+        matchesChanged++;
+      }
+    }
+
+    this.notifyUpdates();
+    return { team, matchesChanged };
+  }
+
+  /** Apply (or clear, with null) a walkover on one match without persisting. */
+  private applyWalkover(
+    match: Match,
+    outcome: 'team1' | 'team2' | 'both' | null,
+    submittedBy: string
+  ): void {
+    const now = new Date().toISOString();
+    delete match.seqLog;
+    match.matchVersion = (match.matchVersion ?? 0) + 1;
+
+    if (outcome === null) {
+      delete match.walkover;
+      delete match.padelState;
+      delete match.scoreSummary;
+      delete match.completedAt;
+      delete match.submittedBy;
+      match.team1Score = null;
+      match.team2Score = null;
+      match.status = 'scheduled';
+      return;
+    }
+
+    match.walkover = outcome;
+    match.status = 'completed';
+    match.completedAt = now;
+    match.submittedBy = submittedBy;
+
+    if (outcome === 'both') {
+      match.team1Score = 0;
+      match.team2Score = 0;
+      match.scoreSummary = 'W/O (both absent)';
+      delete match.padelState;
+      return;
+    }
+
+    const team1Won = outcome === 'team1';
+    match.team1Score = team1Won ? 6 : 0;
+    match.team2Score = team1Won ? 0 : 6;
+    match.scoreSummary = 'W/O';
+    match.padelState = {
+      matchId: match.id,
+      team1Games: match.team1Score,
+      team2Games: match.team2Score,
+      team1Points: 0,
+      team2Points: 0,
+      isGoldenPoint: false,
+      isMatchOver: true,
+      winnerTeamId: outcome,
+      lastEventMessage: 'Walkover',
+      history: [],
+      completedAt: now,
+    };
+
+    this.advanceKnockoutForMatch(match.id);
   }
 
   public calculateStandings(): Record<string, StandingsRow[]> {
     const { scoring } = this.state.settings;
     const result: Record<string, StandingsRow[]> = {};
+    const tossWinners = this.state.tossWinners || {};
+    const byBylaw = (a: StandingsRow, b: StandingsRow) => compareStandingsRows(a, b, tossWinners);
+    const isGroupComplete = (groupId: string) => {
+      const groupMatches = this.state.matches.filter((m) => m.groupId === groupId);
+      return (
+        groupMatches.length > 0 &&
+        groupMatches.every((m) => m.status === 'completed' || m.status === 'cancelled')
+      );
+    };
+    let allGroupsComplete = true;
 
     this.state.groups.forEach((group) => {
       const gTeams = this.state.teams.filter((t) => t.groupId === group.id);
@@ -641,6 +853,15 @@ class TournamentStore {
         let gamesLost = 0;
 
         gMatches.forEach((m) => {
+          // Neither team reported (bylaw §6): both take a loss, no games.
+          if (m.walkover === 'both') {
+            if (m.team1Id === team.id || m.team2Id === team.id) {
+              matchesPlayed++;
+              losses++;
+              points += scoring.pointsForLoss;
+            }
+            return;
+          }
           if (m.team1Score === null || m.team2Score === null) return;
 
           // In first-to-6-games simplified format, score is the games count (e.g. 6-4 or 6-5)
@@ -697,44 +918,142 @@ class TournamentStore {
         };
       });
 
-      // Sort criteria: Points desc -> ScoreDiff desc -> GamesWon desc -> Name asc
-      rows.sort(compareStandingsRows);
+      // Bylaw §4: points -> game difference -> live toss.
+      rows.sort(byBylaw);
 
-      // Direct qualification: the top N of each group.
+      // Direct qualification (bylaw §3): the group winner.
       rows.forEach((row, idx) => {
         row.position = idx + 1;
         row.qualified = row.position <= scoring.qualifiersPerGroup;
       });
 
+      // Once the group is finished, a toss decides level teams for 1st place
+      // (qualifies) and 2nd place (runner-up comparison). 3rd/4th don't matter.
+      if (isGroupComplete(group.id)) {
+        markTossPending(rows, `${group.name} position`, tossWinners, [
+          scoring.qualifiersPerGroup,
+          scoring.qualifiersPerGroup + 1,
+        ]);
+      } else {
+        allGroupsComplete = false;
+      }
+
       result[group.id] = rows;
     });
 
-    const directQualifiers = this.state.groups.flatMap((group) =>
-      (result[group.id] || []).filter((row) => row.qualified)
-    );
+    // Group winners, listed by record (quarter-final pairings are drawn by lot).
+    const directQualifiers = this.state.groups
+      .flatMap((group) => (result[group.id] || []).filter((row) => row.qualified))
+      .sort(byBylaw);
 
-    // Wildcards fill the remaining knockout slots with the best teams that
-    // missed direct qualification, compared across every group.
+    // Bylaw §3: the remaining places go to the best RUNNERS-UP only (the team
+    // directly below the qualifying places in each group), never 3rd or 4th.
     const wildcardSlots = scoring.wildcardQualifiers || 0;
-    const wildcards =
-      wildcardSlots > 0
-        ? Object.values(result)
-            .flat()
-            .filter((row) => !row.qualified)
-            .sort(compareStandingsRows)
-            .slice(0, wildcardSlots)
-        : [];
+    const runnerUpPosition = scoring.qualifiersPerGroup + 1;
+    const runnersUp = this.state.groups
+      .map((group) => (result[group.id] || []).find((row) => row.position === runnerUpPosition))
+      .filter((row): row is StandingsRow => !!row)
+      .sort(byBylaw);
+    const wildcards = runnersUp.slice(0, wildcardSlots);
 
     wildcards.forEach((row) => {
       row.qualified = true;
     });
 
-    // Bracket seeding order: group winners first, then the wildcard entries.
+    if (allGroupsComplete) {
+      // Only the last qualifying runner-up place needs a toss; quarter-final
+      // pairings are drawn by lot, so seeding order doesn't matter.
+      markTossPending(runnersUp, 'Best runners-up', tossWinners, [wildcardSlots]);
+    }
+
+    // Listing order for the qualified teams: group winners, then runners-up.
     [...directQualifiers, ...wildcards].forEach((row, idx) => {
       row.qualificationRank = idx + 1;
     });
 
     return result;
+  }
+
+  /**
+   * Quarter-final pairings drawn by lot at the venue. `pairs` holds the four
+   * drawn matches in bracket order (QF1..QF4): QF1/QF2 winners meet in SF1,
+   * QF3/QF4 winners in SF2. Only allowed before any quarter-final has started.
+   * Semi-final, 3rd-place and final slots are cleared until QF results arrive.
+   */
+  public setQuarterFinalDraw(pairs: [string, string][]): { error?: string; matches?: Match[] } {
+    if (!Array.isArray(pairs) || pairs.length !== 4) {
+      return { error: 'Exactly 4 quarter-final pairings are required.' };
+    }
+    const ids = pairs.flat();
+    const known = new Set(this.state.teams.map((t) => t.id));
+    if (ids.length !== 8 || ids.some((id) => typeof id !== 'string' || !known.has(id))) {
+      return { error: 'Every quarter-final slot needs a valid team.' };
+    }
+    if (new Set(ids).size !== 8) {
+      return { error: 'Each team can only appear once in the quarter-final draw.' };
+    }
+
+    const findQf = (n: number) =>
+      this.state.matches.find((m) => m.stage === 'knockout' && m.round === 'qf' && m.bracketPosition === n);
+
+    // Create the knockout structure if it doesn't exist yet.
+    if (![1, 2, 3, 4].every((n) => findQf(n))) {
+      this.seedKnockoutFromStandings();
+    }
+    const qfs = [1, 2, 3, 4].map((n) => findQf(n)!);
+    if (qfs.some((m) => !m)) return { error: 'Knockout bracket is missing quarter-final matches.' };
+
+    const started = qfs.find((m) => m.status === 'live' || (m.status === 'completed' && !m.walkover));
+    if (started) {
+      return {
+        error: `Quarter-final #${started.matchNumber} has already started. Reset its score before changing the draw.`,
+      };
+    }
+
+    const isAbsent = (id: string) => !!this.state.teams.find((t) => t.id === id)?.withdrawn;
+    const clearResult = (m: Match) => {
+      m.team1Score = null;
+      m.team2Score = null;
+      m.status = 'scheduled';
+      delete m.padelState;
+      delete m.scoreSummary;
+      delete m.completedAt;
+      delete m.submittedBy;
+      delete m.seqLog;
+      delete m.walkover;
+      m.matchVersion = (m.matchVersion ?? 0) + 1;
+    };
+
+    qfs.forEach((m, i) => {
+      clearResult(m);
+      m.team1Id = pairs[i][0];
+      m.team2Id = pairs[i][1];
+    });
+
+    // Later rounds wait for the new quarter-final results.
+    for (const m of this.state.matches) {
+      if (m.stage === 'knockout' && m.round !== 'qf') {
+        clearResult(m);
+        m.team1Id = '';
+        m.team2Id = '';
+      }
+    }
+
+    // A team already marked as not coming loses its quarter-final by walkover.
+    for (const m of qfs) {
+      const absent1 = isAbsent(m.team1Id);
+      const absent2 = isAbsent(m.team2Id);
+      if (absent1 || absent2) {
+        this.applyWalkover(
+          m,
+          absent1 && absent2 ? 'both' : absent1 ? 'team2' : 'team1',
+          WALKOVER_BY_ABSENCE
+        );
+      }
+    }
+
+    this.notifyUpdates();
+    return { matches: qfs };
   }
 
   public seedKnockoutFromStandings(): Match[] {

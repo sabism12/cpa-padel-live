@@ -2,9 +2,9 @@ import { Group, Team, Court, Match, TournamentSettings } from '../src/types';
 
 export const DEFAULT_SETTINGS: TournamentSettings = {
   id: 'cpa-padel-2026',
-  name: 'CPA PADEL TOURNAMENT',
+  name: 'CPA – INDIA PADEL TOUR QATAR',
   location: 'CPA Padel Arena & Club',
-  date: '2026 Season Finals',
+  date: 'Season 1',
   scoring: {
     pointsForWin: 3,
     pointsForLoss: 0, // No points for a loss - only wins score (3 pts)

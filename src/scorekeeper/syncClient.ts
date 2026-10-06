@@ -1,69 +1,73 @@
 /**
  * Transport for score events.
  *
- * Sends queued events to whichever target the resolver chose (Dell gateway or
- * Render). The caller supplies the auth token; the transport never reads or
- * stores credentials itself.
+ * Posts one event to the server and classifies the outcome so the sender knows
+ * whether to move on, retry, ask for sign-in, or drop the event. The caller
+ * supplies the auth token; the transport never reads or stores credentials.
  */
 
-import { ScoreEvent, SyncBatchResponse, ScoreEventResult } from '../scoring/eventTypes';
-import { QueuedEvent } from './eventQueue';
-import { ResolvedTarget, syncUrls, isNetworkError } from './targetResolver';
+import { ScoreEvent, ScoreEventResult } from '../scoring/eventTypes';
 
-export interface SendResult {
-  ok: boolean;
-  /** Per-event outcomes when the server responded. */
-  results?: ScoreEventResult[];
-  /** True when the failure was transport-level (retry) not rejection. */
-  networkError?: boolean;
-  error?: string;
-  status?: number;
-}
+const REQUEST_TIMEOUT_MS = 10000;
 
-export async function sendEvents(
-  target: ResolvedTarget,
-  token: string,
-  records: QueuedEvent[]
-): Promise<SendResult> {
-  if (records.length === 0) return { ok: true, results: [] };
+export type PostOutcome =
+  /** The server applied the event (or had already applied it). */
+  | { kind: 'accepted'; result: ScoreEventResult }
+  /** The server refused the event for good (e.g. match already completed). */
+  | { kind: 'rejected'; error: string }
+  /** The sign-in token is missing or expired. */
+  | { kind: 'auth'; error: string }
+  /** Transient problem (Wi-Fi blip, timeout, server busy): safe to resend. */
+  | { kind: 'retry'; error: string };
 
-  const urls = syncUrls(target);
-  const events: ScoreEvent[] = records.map((r) => r.event);
+export async function postScoreEvent(token: string, event: ScoreEvent): Promise<PostOutcome> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
+  let res: Response;
   try {
-    const res = await fetch(urls.events, {
+    res = await fetch('/api/sync/events', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ events }),
+      body: JSON.stringify({ events: [event] }),
       cache: 'no-store',
+      signal: controller.signal,
     });
-
-    // Parse defensively: a proxy/HTML error page must not crash the queue.
-    let data: SyncBatchResponse & { error?: string };
-    try {
-      data = await res.json();
-    } catch {
-      return { ok: false, networkError: true, error: `Unreadable response (HTTP ${res.status})`, status: res.status };
-    }
-
-    if (!res.ok) {
-      return {
-        ok: false,
-        error: data?.error || `Sync failed (HTTP ${res.status})`,
-        status: res.status,
-        results: data?.results,
-      };
-    }
-
-    return { ok: true, results: data.results, status: res.status };
-  } catch (error) {
-    return {
-      ok: false,
-      networkError: isNetworkError(error),
-      error: (error as any)?.message || 'Network error',
-    };
+  } catch {
+    return { kind: 'retry', error: 'No connection — retrying…' };
+  } finally {
+    clearTimeout(timer);
   }
+
+  // Parse defensively: a proxy/HTML error page must not crash the sender.
+  let data: any = null;
+  try {
+    data = await res.json();
+  } catch {
+    // handled below
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    return { kind: 'auth', error: data?.error || 'Sign-in expired. Sign in again to send scores.' };
+  }
+  // Resending is always safe: the eventId makes the server ignore duplicates.
+  if (res.status >= 500 || res.status === 429 || !data) {
+    return { kind: 'retry', error: data?.error || `Server busy (HTTP ${res.status}) — retrying…` };
+  }
+  if (!res.ok) {
+    return { kind: 'rejected', error: data.error || `Score not accepted (HTTP ${res.status}).` };
+  }
+
+  const result: ScoreEventResult = data.results?.[0] ?? {
+    eventId: event.eventId,
+    accepted: true,
+    duplicate: false,
+  };
+  if (result.accepted === false) {
+    return { kind: 'rejected', error: result.error || 'Score not accepted.' };
+  }
+  return { kind: 'accepted', result };
 }

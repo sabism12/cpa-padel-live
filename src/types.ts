@@ -16,6 +16,11 @@ export interface Team {
   player1: string;
   player2: string;
   groupId: string;
+  /**
+   * The team did not come (bylaw §6). Its unplayed matches are recorded as
+   * walkovers to the opponents; results already played stay as they are.
+   */
+  withdrawn?: boolean;
 }
 
 export type MatchStage = 'group' | 'knockout';
@@ -56,6 +61,11 @@ export interface Match {
   seqLog?: MatchEventRecord[];
   /** Per-match version, bumped on every applied score event. */
   matchVersion?: number;
+  /**
+   * Walkover (bylaw §6): the side that won by W/O (recorded as 6-0), or
+   * 'both' when neither team reported (both teams take a loss, no games).
+   */
+  walkover?: 'team1' | 'team2' | 'both';
 }
 
 /**
@@ -95,6 +105,11 @@ export interface StandingsRow {
   scoreDiff: number;
   qualified: boolean;
   qualificationRank?: number;
+  /**
+   * Set when this team is level on points and game difference with another
+   * team and a live toss (bylaw §4) must decide, e.g. "Group A position".
+   */
+  tossPending?: string;
 }
 
 export interface ScoringSettings {

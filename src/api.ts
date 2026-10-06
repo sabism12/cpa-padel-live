@@ -299,6 +299,24 @@ export async function adminImportData(token: string, payload: any) {
   return data;
 }
 
+/**
+ * Quarter-final pairings drawn by lot at the venue, in QF1..QF4 order.
+ * QF1/QF2 winners meet in SF1, QF3/QF4 winners in SF2.
+ */
+export async function adminSetQuarterFinalDraw(token: string, pairs: [string, string][]) {
+  const res = await fetch('/api/admin/knockout/qf-draw', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ pairs }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to save the quarter-final draw');
+  return data;
+}
+
 export async function seedKnockoutFromStandings(token: string) {
   const res = await fetch('/api/knockout/seed-from-standings', {
     method: 'POST',
@@ -306,5 +324,67 @@ export async function seedKnockoutFromStandings(token: string) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Failed to seed knockout bracket');
+  return data;
+}
+
+/** Walkover (bylaw §6): 'team1'/'team2' = 6-0 win, 'both' = both absent, null = clear. */
+export async function adminSetWalkover(
+  token: string,
+  matchId: string,
+  outcome: 'team1' | 'team2' | 'both' | null
+) {
+  const res = await fetch('/api/admin/match/walkover', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ matchId, outcome }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to record walkover');
+  return data;
+}
+
+/**
+ * Team did not come (bylaw §6): its unplayed matches become 6-0 walkovers to
+ * the opponents. Pass withdrawn=false to undo.
+ */
+export async function adminSetTeamWithdrawn(token: string, teamId: string, withdrawn: boolean) {
+  const res = await fetch(`/api/admin/team/${encodeURIComponent(teamId)}/withdraw`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ withdrawn }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update team');
+  return data as { success: boolean; matchesChanged: number };
+}
+
+/** Live toss result (bylaw §4): winnerId won the toss against loserIds. */
+export async function adminRecordToss(token: string, winnerId: string, loserIds: string[]) {
+  const res = await fetch('/api/admin/toss', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ winnerId, loserIds }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to record toss result');
+  return data;
+}
+
+export async function adminClearTosses(token: string) {
+  const res = await fetch('/api/admin/toss/clear', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to clear toss results');
   return data;
 }

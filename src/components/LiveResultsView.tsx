@@ -170,10 +170,10 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
         {/* 2. Full-width light band: tournament identity (like WTA's "WTA 125") */}
         <div className="bg-blue-50 border-y border-blue-100 px-5 sm:px-7 py-6 sm:py-7 flex items-center justify-between gap-4">
           <span className="text-3xl sm:text-5xl font-display font-semibold uppercase tracking-wide text-[#0A0A0F] leading-none">
-            {settings?.name || 'CPA PADEL TOURNAMENT'}
+            {settings?.name || 'CPA – INDIA PADEL TOUR QATAR'}
           </span>
           <span className="shrink-0 text-xs sm:text-sm font-mono font-bold uppercase tracking-widest text-blue-800/80">
-            Season 2026
+            Season 1
           </span>
         </div>
 
@@ -237,7 +237,8 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
             {latestResults.slice(0, 3).map((match) => {
               const g1 = match.padelState?.team1Games ?? match.team1Score ?? 0;
               const g2 = match.padelState?.team2Games ?? match.team2Score ?? 0;
-              const winnerTeam = g1 > g2 ? match.team1 : match.team2;
+              const winnerTeam =
+                match.walkover === 'both' ? null : g1 > g2 ? match.team1 : match.team2;
 
               return (
                 <div
@@ -248,7 +249,9 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                   <div className="flex items-center justify-between text-xs pb-2 sm:pb-2.5 border-b border-slate-100">
                     <div className="flex items-center gap-1.5 font-bold text-[#0A0A0F]">
                       <Trophy className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-amber-500" />
-                      <span className="text-[11px] sm:text-[11px] font-black uppercase tracking-wider">MATCH COMPLETE</span>
+                      <span className="text-[11px] sm:text-[11px] font-black uppercase tracking-wider">
+                        {match.walkover ? 'WALKOVER' : 'MATCH COMPLETE'}
+                      </span>
                     </div>
                     <span className="text-[11px] sm:text-[11px] font-mono text-slate-500 font-semibold">
                       {formatTimeAgo(match.completedAt)}
@@ -517,6 +520,14 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
                     <td className="py-3 px-2.5">
                       <div className="font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors">
                         {pairLabel(row, 'TBD').replace(' / ', '\u00A0/ ')}
+                        {row.tossPending && (
+                          <span
+                            title={`Level on points and game difference: live toss pending (${row.tossPending})`}
+                            className="ml-1.5 inline-block px-1.5 py-0.5 rounded-md bg-amber-300 text-slate-950 text-[9px] font-black uppercase tracking-wider align-middle"
+                          >
+                            Toss
+                          </span>
+                        )}
                       </div>
                     </td>
 

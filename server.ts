@@ -541,12 +541,65 @@ async function startServer() {
       return;
     }
 
-    const updated = tournamentStore.updateMatch(id, updates);
+    // A manual score edit replaces any earlier walkover; walkovers have their
+    // own endpoint below.
+    const updated = tournamentStore.updateMatch(id, { ...updates, walkover: undefined });
     if (!updated) {
       res.status(404).json({ error: 'Match not found.' });
       return;
     }
     res.json({ success: true, match: updated });
+  });
+
+  // Walkover (bylaw §6): outcome is 'team1' | 'team2' (6-0 win), 'both'
+  // (neither team reported; both lose), or null to clear it.
+  app.post('/api/admin/match/walkover', requireAdmin, (req: Request, res: Response) => {
+    const { matchId, outcome } = req.body || {};
+    if (typeof matchId !== 'string' || !matchId) {
+      res.status(400).json({ error: 'Match ID is required.' });
+      return;
+    }
+    if (outcome !== null && !['team1', 'team2', 'both'].includes(outcome)) {
+      res.status(400).json({ error: "Outcome must be 'team1', 'team2', 'both' or null." });
+      return;
+    }
+    const updated = tournamentStore.setWalkover(matchId, outcome);
+    if (!updated) {
+      res.status(404).json({ error: 'Match not found.' });
+      return;
+    }
+    res.json({ success: true, match: updated });
+  });
+
+  // Team did not come (bylaw §6): its unplayed matches become walkovers to the
+  // opponents. { withdrawn: false } undoes it.
+  app.post('/api/admin/team/:id/withdraw', requireAdmin, (req: Request, res: Response) => {
+    const withdrawn = req.body?.withdrawn !== false;
+    const result = tournamentStore.setTeamWithdrawn(req.params.id, withdrawn);
+    if (!result) {
+      res.status(404).json({ error: 'Team not found.' });
+      return;
+    }
+    res.json({ success: true, ...result });
+  });
+
+  // Live toss result (bylaw §4): winnerId won the toss against loserIds.
+  app.post('/api/admin/toss', requireAdmin, (req: Request, res: Response) => {
+    const { winnerId, loserIds } = req.body || {};
+    if (typeof winnerId !== 'string' || !Array.isArray(loserIds) || loserIds.length === 0) {
+      res.status(400).json({ error: 'winnerId and a non-empty loserIds list are required.' });
+      return;
+    }
+    if (!tournamentStore.recordToss(winnerId, loserIds.map(String))) {
+      res.status(400).json({ error: 'Unknown team in toss result.' });
+      return;
+    }
+    res.json({ success: true });
+  });
+
+  app.post('/api/admin/toss/clear', requireAdmin, (_req: Request, res: Response) => {
+    tournamentStore.clearTosses();
+    res.json({ success: true });
   });
 
   // Teams CRUD
@@ -586,6 +639,16 @@ async function startServer() {
   });
 
   // Knockout Bracket Seeding
+  // Quarter-final pairings drawn by lot: { pairs: [[t1, t2], x4] } in QF1..QF4 order.
+  app.post('/api/admin/knockout/qf-draw', requireAdmin, (req: Request, res: Response) => {
+    const result = tournamentStore.setQuarterFinalDraw(req.body?.pairs);
+    if (result.error) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+    res.json({ success: true, matches: getEnrichedMatchesList(result.matches!) });
+  });
+
   app.post('/api/knockout/seed-from-standings', requireAdmin, (req: Request, res: Response) => {
     const updatedMatches = tournamentStore.seedKnockoutFromStandings();
     res.json({ success: true, matches: getEnrichedMatchesList(updatedMatches) });

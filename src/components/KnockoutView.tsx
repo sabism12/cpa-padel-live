@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import { Match, Team, Court, Group, StandingsRow, TournamentSettings, AuthSession } from '../types';
 import { EnrichedMatch } from '../api';
-import { seedKnockoutFromStandings } from '../api';
 import { pairLabel } from '../utils/teamDisplay';
 
 interface KnockoutViewProps {
@@ -70,7 +69,6 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<'fotmob' | 'bracket' | 'list'>('fotmob');
   const [selectedMatch, setSelectedMatch] = useState<EnrichedMatch | null>(null);
-  const [isSeeding, setIsSeeding] = useState(false);
 
   // Filter knockout matches
   const knockoutMatches = matches.filter(
@@ -98,20 +96,6 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
       championTeam = finalMatch.team2 || null;
     }
   }
-
-  // Handle Seeding Bracket from Standings (admin only)
-  const handleSeedBracket = async () => {
-    if (!session?.token) return;
-    try {
-      setIsSeeding(true);
-      await seedKnockoutFromStandings(session.token);
-      if (onRefreshData) onRefreshData();
-    } catch (err: any) {
-      alert(err.message || 'Failed to seed bracket');
-    } finally {
-      setIsSeeding(false);
-    }
-  };
 
   // Render Team Node inside Card (site aesthetic: stacked names, no avatars)
   const renderTeamNode = (
@@ -248,17 +232,6 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
         </h2>
 
         <div className="mt-6 sm:mt-8 flex items-center justify-center gap-1.5 p-1.5 bg-white/90 backdrop-blur-md border border-blue-400/60 rounded-2xl shadow-md w-max mx-auto">
-          {session?.role === 'admin' && (
-            <button
-              onClick={handleSeedBracket}
-              disabled={isSeeding}
-              className="px-3 sm:px-4 py-2 rounded-xl bg-[#0A0A0F] text-[#CCFF00] text-xs sm:text-sm font-black tracking-wider uppercase transition-all cursor-pointer whitespace-nowrap"
-              title="Seed bracket matches from current group standings"
-            >
-              <Shuffle className={`w-3.5 h-3.5 inline-block mr-1 ${isSeeding ? 'animate-spin' : ''}`} />
-              {isSeeding ? 'Seeding...' : 'Seed'}
-            </button>
-          )}
           {([
             ['fotmob', 'Tree'],
             ['bracket', 'Bracket'],

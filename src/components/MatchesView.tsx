@@ -20,7 +20,7 @@ function statusLabel(match: EnrichedMatch): string {
     case 'live':
       return 'Live';
     case 'completed':
-      return 'Finished';
+      return match.walkover ? 'Walkover' : 'Finished';
     case 'ready':
       return 'Ready';
     case 'cancelled':

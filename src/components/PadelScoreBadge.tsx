@@ -53,6 +53,14 @@ export const PadelScoreBadge: React.FC<PadelScoreBadgeProps> = ({ match, size = 
     );
   }
 
+  if (isDone && match.walkover === 'both') {
+    return (
+      <div className="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 font-display font-black text-xs text-slate-400 uppercase">
+        W/O – both absent
+      </div>
+    );
+  }
+
   if (isDone) {
     const g1 = padel?.team1Games ?? match.team1Score ?? 0;
     const g2 = padel?.team2Games ?? match.team2Score ?? 0;

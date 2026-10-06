@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Court, AuthSession } from '../types';
-import { EnrichedMatch, submitScoreResult, setMatchLiveScore, resetAllScores } from '../api';
+import { EnrichedMatch, setMatchLiveScore, resetAllScores } from '../api';
 import { pairLabel } from '../utils/teamDisplay';
 import { stageLabel, isKnockoutMatch } from '../utils/matchStage';
-import { useSyncQueue } from '../scorekeeper/useSyncQueue';
+import { useScoreSender, sendScoreEvent, retryScoreEventsNow } from '../scorekeeper/scoreSender';
 import { SyncStatusBar } from '../scorekeeper/SyncStatusBar';
-import { GatewayInfoPanel } from '../scorekeeper/GatewayInfoPanel';
-import { ScoreEventType } from '../scoring/eventTypes';
+import { ScoreEvent, ScoreEventType } from '../scoring/eventTypes';
 import {
   PadelMatchState,
   ScoringActionHistoryItem,
@@ -18,6 +17,33 @@ import {
   formatPointDisplay,
   formatMatchScoreSummary,
 } from '../scoring/scoringEngine';
+
+/** How long to trust our own just-confirmed score over older server data. */
+const ACK_GRACE_MS = 10000;
+
+/** The server's view of a match's scoring state. */
+function serverStateFor(match: EnrichedMatch): PadelMatchState {
+  if (match.padelState) {
+    return { ...match.padelState, matchId: match.id, history: match.padelState.history ?? [] };
+  }
+  const state = createInitialMatchState(match.id);
+  if (match.team1Score !== null && match.team2Score !== null) {
+    state.team1Games = match.team1Score;
+    state.team2Games = match.team2Score;
+    if (state.team1Games >= 6 || state.team2Games >= 6) {
+      state.isMatchOver = true;
+      state.winnerTeamId = state.team1Games >= 6 ? 'team1' : 'team2';
+    }
+  }
+  return state;
+}
+
+function newEventId(prefix = 'evt'): string {
+  return (
+    (crypto as any)?.randomUUID?.() ??
+    `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+  );
+}
 import {
   ClipboardEdit,
   RotateCcw,
@@ -78,24 +104,10 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
   const [showResetConfirm, setShowResetConfirm] = useState<boolean>(false);
   const [showResetAllConfirm, setShowResetAllConfirm] = useState<boolean>(false);
   const [resettingAll, setResettingAll] = useState<boolean>(false);
-  const [syncStatus, setSyncStatus] = useState<'synced' | 'saving' | 'error'>('synced');
-
-  // Authoritative, offline-safe event pipeline. Events are written to IndexedDB
-  // before transmission and retried automatically; the server derives the score.
-  const sync = useSyncQueue(session?.token ?? null);
-
-  // Debounce ref for live score broadcasting
-  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  /**
-   * Emit a score event to the authoritative server. The eventId is generated
-   * here (once) and persisted by the queue before any network attempt, so
-   * retries, refresh, and multi-path delivery can never double-apply.
-   * (Declared after currentMatch/currentCourt below.)
-   */
-  const emitScoreEventRef = useRef<
-    (type: ScoreEventType, payload?: { team1Games?: number; team2Games?: number; scoreSummary?: string }) => void
-  >(() => undefined);
+  // Score events go straight to the server, in order, with automatic retry.
+  // The server derives the official score; this phone only shows its own taps
+  // ahead of the server while they are still on their way.
+  const sender = useScoreSender(session?.token ?? null);
 
   useEffect(() => {
     if (initialCourtId) {
@@ -131,17 +143,15 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
     : null;
 
   /**
-   * Emit a score event to the authoritative server. The eventId is generated
-   * once here and persisted by the queue before any network attempt, so
-   * retries, refresh, and multi-path delivery can never double-apply a point.
+   * Send a score event. The eventId is generated once here and reused on every
+   * retry, so a resend after a Wi-Fi blip can never double-count a point.
+   * Resolves true once the server accepts it, false if the server refuses it.
    */
   const emitScoreEvent = useCallback(
-    (type: ScoreEventType, payload?: { team1Games?: number; team2Games?: number; scoreSummary?: string }) => {
-      if (!currentMatch) return;
-      const event = {
-        eventId:
-          (crypto as any)?.randomUUID?.() ??
-          `evt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+    (type: ScoreEventType, payload?: ScoreEvent['payload']): Promise<boolean> => {
+      if (!currentMatch) return Promise.resolve(false);
+      const event: ScoreEvent = {
+        eventId: newEventId(type === 'MATCH_FINAL' ? 'evt-final' : 'evt'),
         matchId: currentMatch.id,
         courtId: currentCourt?.id ?? null,
         scorekeeper: session?.name || 'Scorekeeper',
@@ -149,124 +159,76 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
         ...(payload ? { payload } : {}),
         clientTs: new Date().toISOString(),
       };
-      setSyncStatus('saving');
-      void sync
-        .queue(event)
-        .then(() => setSyncStatus('synced'))
-        .catch((err) => {
-          setSyncStatus('error');
-          setErrorMessage(err?.message || 'Failed to queue score event');
-        });
+      return sendScoreEvent(event).then(
+        () => true,
+        (err) => {
+          setErrorMessage(err?.message || 'Score not accepted by the server.');
+          onRefreshData();
+          return false;
+        }
+      );
     },
-    [currentMatch, currentCourt?.id, session?.name, sync]
+    [currentMatch, currentCourt?.id, session?.name, onRefreshData]
   );
-  emitScoreEventRef.current = emitScoreEvent;
 
-  // Initialize or load padel match state
+  // Scores used to be cached per match on the phone; the server is now the
+  // only source of truth, so clear any leftovers from older versions.
+  useEffect(() => {
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('cpa_padel_match_')) localStorage.removeItem(key);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  const matchId = currentMatch?.id ?? null;
+  const pendingHere = matchId ? sender.pendingByMatch[matchId] ?? 0 : 0;
+  const ackedHere = matchId ? sender.ackedByMatch[matchId] : undefined;
+  const serverPadel = currentMatch?.padelState;
+  const serverKey = currentMatch
+    ? [
+        currentMatch.matchVersion ?? 0,
+        currentMatch.status,
+        currentMatch.team1Score,
+        currentMatch.team2Score,
+        serverPadel?.team1Games,
+        serverPadel?.team2Games,
+        serverPadel?.team1Points,
+        serverPadel?.team2Points,
+        serverPadel?.isGoldenPoint,
+        serverPadel?.history?.length,
+      ].join('|')
+    : '';
+
+  // Clear messages when switching to a different match.
+  useEffect(() => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setShowResetConfirm(false);
+  }, [matchId]);
+
+  // Follow the server's score (so admin corrections and "Reset All" show up on
+  // every phone), except while this phone's own taps are still on their way or
+  // the server data is older than a version the server already confirmed.
   useEffect(() => {
     if (!currentMatch) {
       setPadelState(null);
       return;
     }
+    const waitingForServer =
+      !!ackedHere &&
+      Date.now() - ackedHere.at < ACK_GRACE_MS &&
+      (currentMatch.matchVersion ?? 0) < ackedHere.version;
 
-    // Try reading from localStorage first for offline resilience
-    const localKey = `cpa_padel_match_${currentMatch.id}`;
-    let loadedState: PadelMatchState | null = null;
-
-    try {
-      const saved = localStorage.getItem(localKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.matchId === currentMatch.id) {
-          loadedState = parsed;
-        }
-      }
-    } catch {
-      // ignore
-    }
-
-    if (!loadedState && currentMatch.padelState) {
-      loadedState = currentMatch.padelState;
-    }
-
-    if (!loadedState) {
-      loadedState = createInitialMatchState(currentMatch.id);
-      // If match already had an in-progress game score recorded
-      if (currentMatch.team1Score !== null && currentMatch.team2Score !== null) {
-        loadedState.team1Games = currentMatch.team1Score;
-        loadedState.team2Games = currentMatch.team2Score;
-        if (loadedState.team1Games >= 6 || loadedState.team2Games >= 6) {
-          loadedState.isMatchOver = true;
-          loadedState.winnerTeamId = loadedState.team1Games >= 6 ? 'team1' : 'team2';
-        }
-      }
-    }
-
-    setPadelState(loadedState);
-    setErrorMessage(null);
-    setSuccessMessage(null);
-    setShowResetConfirm(false);
-  }, [currentMatch?.id]);
-
-  // Persist to local storage whenever padelState changes
-  useEffect(() => {
-    if (padelState && currentMatch) {
-      const localKey = `cpa_padel_match_${currentMatch.id}`;
-      try {
-        localStorage.setItem(localKey, JSON.stringify(padelState));
-      } catch {
-        // ignore storage quota
-      }
-    }
-  }, [padelState, currentMatch?.id]);
-
-  // Function to broadcast live status/score to server.
-  // Retained for match setup/reassignment only; point-by-point scoring now goes
-  // through the authoritative, offline-safe event queue (see emitScoreEvent).
-  const broadcastLiveScore = useCallback(
-    (stateToBroadcast: PadelMatchState, status: 'live' | 'ready' | 'scheduled' | 'completed') => {
-      const activeToken = session?.token;
-      if (!currentMatch) return;
-
-      if (!activeToken) {
-        setSyncStatus('error');
-        setErrorMessage('Authentication required: please sign in to broadcast live scores.');
-        return;
-      }
-
-      if (syncTimeoutRef.current) {
-        clearTimeout(syncTimeoutRef.current);
-      }
-
-      setSyncStatus('saving');
-      syncTimeoutRef.current = setTimeout(async () => {
-        try {
-          const summary = formatMatchScoreSummary(stateToBroadcast);
-          await setMatchLiveScore(
-            activeToken,
-            currentMatch.id,
-            stateToBroadcast.team1Games,
-            stateToBroadcast.team2Games,
-            status,
-            stateToBroadcast,
-            summary
-          );
-          setSyncStatus('synced');
-          setErrorMessage(null);
-        } catch (err: any) {
-          console.warn('Live score sync notice:', err?.message || err);
-          setSyncStatus('error');
-          const msg = err?.message || 'Failed to sync live score';
-          if (msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('scorekeeper')) {
-            setErrorMessage('Scorekeeper PIN required: Please authenticate to broadcast live tournament points.');
-          } else {
-            setErrorMessage(msg);
-          }
-        }
-      }, 300);
-    },
-    [session, currentMatch]
-  );
+    setPadelState((prev) => {
+      if (prev?.matchId === currentMatch.id && (pendingHere > 0 || waitingForServer)) return prev;
+      return serverStateFor(currentMatch);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchId, serverKey, pendingHere, ackedHere, sender.rejectedTick]);
 
   const handleQuickScorekeeperLogin = async () => {
     onOpenAuth();
@@ -318,7 +280,7 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
     setErrorMessage(null);
     const newState = recordPoint(padelState, team, team1Name, team2Name);
     setPadelState(newState);
-    emitScoreEvent(team === 'team1' ? 'POINT_TEAM_1' : 'POINT_TEAM_2');
+    void emitScoreEvent(team === 'team1' ? 'POINT_TEAM_1' : 'POINT_TEAM_2');
   };
 
   // Handle Undo Last Point
@@ -327,7 +289,7 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
 
     const reverted = undoLastPoint(padelState);
     setPadelState(reverted);
-    emitScoreEvent('UNDO');
+    void emitScoreEvent('UNDO');
   };
 
   // Handle Reset Match
@@ -336,7 +298,7 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
     const fresh = createInitialMatchState(currentMatch.id);
     setPadelState(fresh);
     setShowResetConfirm(false);
-    emitScoreEvent('RESET');
+    void emitScoreEvent('RESET');
   };
 
   // Handle Reset ALL Games — server-authoritative so spectator boards update too.
@@ -353,15 +315,6 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
 
     try {
       const { matchesReset, knockoutReset } = await resetAllScores(activeToken);
-
-      // Drop every per-match local cache so a stale score cannot be reloaded.
-      try {
-        for (const m of matches) {
-          localStorage.removeItem(`cpa_padel_match_${m.id}`);
-        }
-      } catch {
-        // ignore storage errors
-      }
 
       if (currentMatch) {
         setPadelState(createInitialMatchState(currentMatch.id));
@@ -388,7 +341,8 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
     }
   };
 
-  // Handle Final Match Submission — authoritative event path with legacy fallback.
+  // Handle Final Match Submission. "Submitted" is only shown once the server
+  // has accepted the result; the server applies knockout advancement once.
   const handleSubmitFinalResult = async () => {
     if (!currentMatch || !padelState) return;
 
@@ -397,63 +351,34 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
       return;
     }
 
-    const activeToken = session?.token;
-    if (!activeToken) {
-      setErrorMessage('Authentication required: please sign in to submit results.');
-      return;
-    }
-
     setSubmitting(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
 
-    try {
-      const summary = formatMatchScoreSummary(padelState);
+    // Lock current match ID so the screen stays on this match after submission.
+    setSelectedMatchId(currentMatch.id);
 
-      // Queue the MATCH_FINAL event (durable, idempotent). The server applies
-      // knockout advancement exactly once.
-      await sync.queue({
-        eventId:
-          (crypto as any)?.randomUUID?.() ??
-          `evt-final-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
-        matchId: currentMatch.id,
-        courtId: currentCourt?.id ?? null,
-        scorekeeper: session?.name || 'Scorekeeper',
-        type: 'MATCH_FINAL',
-        payload: {
-          team1Games: padelState.team1Games,
-          team2Games: padelState.team2Games,
-          scoreSummary: summary,
-        },
-        clientTs: new Date().toISOString(),
-      });
+    const summary = formatMatchScoreSummary(padelState);
+    const winnerName = padelState.winnerTeamId === 'team1' ? team1Name : team2Name;
+    const accepted = await emitScoreEvent('MATCH_FINAL', {
+      team1Games: padelState.team1Games,
+      team2Games: padelState.team2Games,
+      scoreSummary: summary,
+    });
 
-      // Lock current match ID so screen remains stable after submission
-      setSelectedMatchId(currentMatch.id);
-
-      // Clear local storage key
-      const localKey = `cpa_padel_match_${currentMatch.id}`;
-      localStorage.removeItem(localKey);
-
-      setSuccessMessage(
-        `Result submitted successfully! Winner: ${
-          padelState.winnerTeamId === 'team1' ? team1Name : team2Name
-        } (${summary})`
-      );
-
-      void sync.flush();
+    if (accepted) {
+      setSuccessMessage(`Result submitted. Winner: ${winnerName} (${summary})`);
       onRefreshData();
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to submit match result.');
-    } finally {
-      setSubmitting(false);
     }
+    setSubmitting(false);
   };
 
   // Mark match live without scoring a point yet
   const handleStartMatch = () => {
     if (!padelState || !currentMatch) return;
-    emitScoreEvent('MATCH_START');
-    onRefreshData();
+    void emitScoreEvent('MATCH_START').then((accepted) => {
+      if (accepted) onRefreshData();
+    });
   };
 
   // Select a game to score on the current court (with option to immediately mark live or reassign from another court)
@@ -559,27 +484,25 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white border border-blue-300 text-xs shadow-sm">
-            {syncStatus === 'synced' && (
-              <>
-                <span className="w-2 h-2 rounded-full bg-blue-500" />
-                <span className="text-blue-700 font-bold">Live Synced</span>
-              </>
-            )}
-            {syncStatus === 'saving' && (
-              <>
-                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                <span className="text-amber-700 font-bold">Broadcasting...</span>
-              </>
-            )}
-            {syncStatus === 'error' && (
+            {sender.status === 'auth' ? (
               <button
                 onClick={onOpenAuth}
                 className="flex items-center gap-1.5 text-rose-600 hover:text-rose-700 transition-colors cursor-pointer"
-                title="Authentication required to sync scores. Click to sign in."
+                title="Sign-in expired. Click to sign in again."
               >
                 <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                <span className="font-bold underline">Auth required • Sign in</span>
+                <span className="font-bold underline">Sign in to send</span>
               </button>
+            ) : sender.pending > 0 ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                <span className="text-amber-700 font-bold">Sending…</span>
+              </>
+            ) : (
+              <>
+                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                <span className="text-blue-700 font-bold">All points saved</span>
+              </>
             )}
           </div>
 
@@ -631,22 +554,14 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
         </div>
       )}
 
-      {/* Gateway LAN URL + QR (only rendered when served from the Dell gateway) */}
-      <GatewayInfoPanel />
-
-      {/* Connection + offline queue status (Local Dell / Direct Internet / Offline) */}
-      {sync.pending > 0 || sync.mode !== 'online-direct' ? (
-        <SyncStatusBar
-          mode={sync.mode}
-          targetLabel={sync.targetLabel}
-          pending={sync.pending}
-          syncing={sync.syncing}
-          lastError={sync.lastError}
-          gatewayUrl={sync.gatewayUrl}
-          onSetGatewayUrl={sync.setGatewayUrl}
-          onFlush={() => void sync.flush()}
-        />
-      ) : null}
+      {/* Shown only when points are stuck retrying or sign-in has expired */}
+      <SyncStatusBar
+        status={sender.status}
+        pending={sender.pending}
+        lastError={sender.lastError}
+        onRetry={retryScoreEventsNow}
+        onSignIn={onOpenAuth}
+      />
 
       {/* Court Selection Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
@@ -1487,12 +1402,22 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
                       <p className="text-xs text-slate-500">All other tournament matches are completed or already assigned to this court.</p>
                     </div>
                   ) : (
-                    filteredOtherMatches.map((m) => {
+                    // Matches being scored live on another court go last and
+                    // need an explicit take-over, so two scorekeepers never
+                    // end up scoring the same match by accident.
+                    [...filteredOtherMatches]
+                      .sort((a, b) => Number(a.status === 'live') - Number(b.status === 'live'))
+                      .map((m) => {
                       const originCourt = courts.find((c) => c.id === m.courtId);
+                      const liveElsewhere = m.status === 'live';
                       return (
                         <div
                           key={m.id}
-                          className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition-all"
+                          className={`p-4 rounded-2xl border transition-all ${
+                            liveElsewhere
+                              ? 'bg-rose-950/20 border-rose-500/30'
+                              : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
+                          }`}
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="space-y-1">
@@ -1504,9 +1429,15 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
                                   <Clock className="w-3 h-3" />
                                   {m.scheduledTime}
                                 </span>
-                                <span className="text-xs font-medium text-slate-400">
-                                  • Originally on {originCourt?.name || 'Unassigned'}
-                                </span>
+                                {liveElsewhere ? (
+                                  <span className="px-2 py-0.5 rounded bg-rose-500 text-white text-[10px] font-black uppercase tracking-wider">
+                                    🔴 Live on {originCourt?.name || 'another court'}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs font-medium text-slate-400">
+                                    • Originally on {originCourt?.name || 'Unassigned'}
+                                  </span>
+                                )}
                                 <span className="text-xs font-semibold text-slate-400">
                                   • {stageLabel(m)}
                                 </span>
@@ -1520,13 +1451,34 @@ export const ScorekeeperView: React.FC<ScorekeeperViewProps> = ({
                             </div>
 
                             <div className="flex items-center gap-2 pt-2 sm:pt-0">
-                              <button
-                                onClick={() => handleSelectGameToScore(m, true)}
-                                className="px-4 py-2 rounded-xl bg-lime-400 hover:bg-lime-300 text-slate-950 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md shadow-lime-400/10 flex items-center gap-1.5"
-                              >
-                                <Shuffle className="w-3.5 h-3.5" />
-                                <span>Move & Start Live on {currentCourt?.name}</span>
-                              </button>
+                              {liveElsewhere ? (
+                                <button
+                                  onClick={() => {
+                                    const confirmed = window.confirm(
+                                      `Match #${m.matchNumber} is being scored live on ${
+                                        originCourt?.name || 'another court'
+                                      } right now.
+
+Take it over and move it to ${
+                                        currentCourt?.name || 'this court'
+                                      }? Only do this if that scorekeeper has stopped.`
+                                    );
+                                    if (confirmed) void handleSelectGameToScore(m, true);
+                                  }}
+                                  className="px-4 py-2 rounded-xl bg-transparent hover:bg-rose-500/10 text-rose-300 border border-rose-500/50 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5"
+                                >
+                                  <AlertCircle className="w-3.5 h-3.5" />
+                                  <span>Take Over…</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleSelectGameToScore(m, true)}
+                                  className="px-4 py-2 rounded-xl bg-lime-400 hover:bg-lime-300 text-slate-950 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md shadow-lime-400/10 flex items-center gap-1.5"
+                                >
+                                  <Shuffle className="w-3.5 h-3.5" />
+                                  <span>Move & Start Live on {currentCourt?.name}</span>
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>

@@ -139,6 +139,14 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                         <td className="py-3 px-2.5">
                           <div className="font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors">
                             {pairLabel(row, 'TBD').replace(' / ', '\u00A0/ ')}
+                            {row.tossPending && (
+                              <span
+                                title={`Level on points and game difference: live toss pending (${row.tossPending})`}
+                                className="ml-1.5 inline-block px-1.5 py-0.5 rounded-md bg-amber-300 text-slate-950 text-[9px] font-black uppercase tracking-wider align-middle"
+                              >
+                                Toss
+                              </span>
+                            )}
                           </div>
                         </td>
 

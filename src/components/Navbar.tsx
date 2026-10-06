@@ -115,7 +115,11 @@ export const Navbar: React.FC<NavbarProps> = ({
       .slice(0, 8)
       .forEach((m) => {
         const winner =
-          (m.team1Score ?? 0) > (m.team2Score ?? 0) ? m.team1 : m.team2;
+          m.walkover === 'both'
+            ? null
+            : (m.team1Score ?? 0) > (m.team2Score ?? 0)
+            ? m.team1
+            : m.team2;
         items.push({
           id: `result-${m.id}`,
           title: `Result • ${m.court?.name || 'Match ' + m.matchNumber}`,
@@ -622,8 +626,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                     CPA
                   </div>
                   <div>
-                    <div className="text-base font-display font-bold text-white">CPA Padel Tour</div>
-                    <div className="text-[10px] font-mono text-[#CCFF00]">2026 World Season</div>
+                    <div className="text-base font-display font-bold text-white">CPA – India Padel Tour</div>
+                    <div className="text-[10px] font-mono text-[#CCFF00]">Qatar · Season 1</div>
                   </div>
                 </div>
                 <button
