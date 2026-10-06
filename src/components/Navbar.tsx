@@ -1,22 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import {
-  Menu,
-  Search,
-  Bell,
-  X,
-  Radio,
-  Trophy,
-  Calendar,
-  Swords,
-  Users,
-  Layers,
-  Zap,
-  ChevronRight,
-  Sparkles,
-} from 'lucide-react';
+import { Menu, Search, Bell, X, ChevronRight } from 'lucide-react';
 import { Court, Group, Team } from '../types';
 import { EnrichedMatch } from '../api';
-import actionSquareImg from '../assets/images/padel_action_square_1790159179818.jpg';
 import knockoutsIconSvgRaw from '../assets/knockouts-icon.svg?raw';
 import courtsIconSvgRaw from '../assets/courts-icon.svg?raw';
 import rankingsIconSvgRaw from '../assets/rankings-icon.svg?raw';
@@ -48,9 +33,43 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectTeam,
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // The drawer stays mounted while it slides out, then unmounts.
+  const [drawerMounted, setDrawerMounted] = useState(false);
+  const [drawerShown, setDrawerShown] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Slide the menu in/out smoothly instead of popping it on and off.
+  const drawerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (drawerOpen) {
+      setDrawerMounted(true);
+      document.body.style.overflow = 'hidden';
+      return;
+    }
+    setDrawerShown(false);
+    document.body.style.overflow = '';
+    const timer = window.setTimeout(() => setDrawerMounted(false), 320);
+    return () => window.clearTimeout(timer);
+  }, [drawerOpen]);
+
+  // Once the closed panel is in the page, read its layout so the browser
+  // commits the off-screen position, then slide it in.
+  useEffect(() => {
+    if (!drawerMounted || !drawerOpen) return;
+    drawerRef.current?.getBoundingClientRect();
+    setDrawerShown(true);
+  }, [drawerMounted, drawerOpen]);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDrawerOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawerOpen]);
 
   // Search input focus ref
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -607,72 +626,87 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       )}
 
-      {/* 4. SLIDING TOUR MENU DRAWER */}
-      {drawerOpen && (
-        <div className="fixed inset-0 z-50 flex">
-          {/* Backdrop */}
+      {/* 4. SLIDING MENU DRAWER — a slim panel attached to the left edge,
+           in the site's design language (white, logo, display type, ink/volt
+           active pill). Slides and fades in/out smoothly. */}
+      {drawerMounted && (
+        <div className="fixed inset-0 z-50">
+          {/* Backdrop: fades, tap to close */}
           <div
             onClick={() => setDrawerOpen(false)}
-            className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+            className={`absolute inset-0 bg-[#0A0A0F]/45 backdrop-blur-[2px] transition-opacity duration-300 ease-out ${
+              drawerShown ? 'opacity-100' : 'opacity-0'
+            }`}
           />
 
-          {/* Drawer Content */}
-          <div className="relative w-80 sm:w-96 bg-slate-950 border-r border-slate-800 h-full p-6 flex flex-col justify-between shadow-2xl z-10 animate-in slide-in-from-left duration-200">
-            <div>
-              {/* Drawer Brand */}
-              <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
-                <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-xl bg-[#CCFF00] text-slate-950 font-bold flex items-center justify-center font-display italic text-lg shadow-md">
-                    CPA
-                  </div>
-                  <div>
-                    <div className="text-base font-display font-bold text-white">CPA – India Padel Tour</div>
-                    <div className="text-[10px] font-mono text-[#CCFF00]">Qatar · Season 1</div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setDrawerOpen(false)}
-                  className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+          {/* Panel */}
+          <nav
+            ref={drawerRef}
+            aria-label="Site menu"
+            className={`absolute left-0 top-0 bottom-0 w-[74%] max-w-[18rem] flex flex-col bg-white text-[#0A0A0F] rounded-r-[1.6rem] border-r border-blue-400/40 shadow-2xl will-change-transform transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              drawerShown ? 'translate-x-0' : '-translate-x-full'
+            }`}
+          >
+            {/* Header: logo + close */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-3">
+              <img
+                src="/cpa%20logo%20final.svg"
+                alt="CPA Padel"
+                className="h-9 w-auto select-none"
+              />
+              <button
+                onClick={() => setDrawerOpen(false)}
+                className="p-2 -mr-2 rounded-full hover:bg-slate-100 text-slate-900 transition-colors cursor-pointer"
+                aria-label="Close menu"
+              >
+                <X className="w-5 h-5 stroke-[2.2]" />
+              </button>
+            </div>
 
-              {/* Navigation Links */}
-              <div className="space-y-1">
-                {[
-                  { id: 'results', label: 'Live Results & Scores', icon: <Zap className="w-4 h-4 text-blue-400" /> },
-                  { id: 'courts', label: 'Live Courts (5 Arenas)', icon: <Radio className="w-4 h-4 text-sky-400" /> },
-                  { id: 'standings', label: 'Tour Standings & Rankings', icon: <Trophy className="w-4 h-4 text-amber-400" /> },
-                  { id: 'knockout', label: 'Knockout Bracket & Finals', icon: <Layers className="w-4 h-4 text-rose-400" /> },
-                  { id: 'matches', label: 'Match Schedule & Fixtures', icon: <Calendar className="w-4 h-4 text-blue-400" /> },
-                  { id: 'teams', label: 'Teams & Player Directory', icon: <Users className="w-4 h-4 text-sky-400" /> },
-                ].map((item) => (
+            <div className="px-5 pb-3 text-[10px] font-mono font-bold uppercase tracking-widest text-blue-800/80">
+              India Padel Tour · Qatar · S1
+            </div>
+
+            {/* Pages */}
+            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+              {[
+                { id: 'results', label: 'Scores' },
+                { id: 'courts', label: 'Courts' },
+                { id: 'standings', label: 'Rankings' },
+                { id: 'knockout', label: 'Knockouts' },
+                { id: 'matches', label: 'Fixtures' },
+                { id: 'teams', label: 'Teams' },
+              ].map((item, index) => {
+                const isActive = activeTab === item.id;
+                return (
                   <button
                     key={item.id}
                     onClick={() => handleSelectNav(item.id as NavTab)}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${
-                      activeTab === item.id
-                        ? 'bg-slate-900 text-[#CCFF00] border border-slate-800'
-                        : 'text-slate-300 hover:bg-slate-900/60 hover:text-white'
-                    }`}
+                    aria-current={isActive ? 'page' : undefined}
+                    style={{ transitionDelay: drawerShown ? `${60 + index * 35}ms` : '0ms' }}
+                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-left cursor-pointer transition-[opacity,transform,background-color] duration-300 ease-out ${
+                      drawerShown ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-3'
+                    } ${isActive ? 'bg-[#0A0A0F] text-[#CCFF00]' : 'hover:bg-blue-50 text-[#0A0A0F]'}`}
                   >
-                    {item.icon}
-                    <span>{item.label}</span>
+                    <span
+                      className={`w-5 text-[10px] font-mono font-bold tabular-nums ${
+                        isActive ? 'text-[#CCFF00]/70' : 'text-slate-400'
+                      }`}
+                    >
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    <span className="flex-1 text-2xl font-display font-semibold uppercase tracking-tight leading-none">
+                      {item.label}
+                    </span>
                   </button>
-                ))}
-              </div>
-
-              {/* Live Group Draw — separate lazy-loaded presentation route */}
-              <a
-                href="/draw"
-                className="mt-4 flex items-center gap-3 rounded-xl border border-[#CCFF00]/40 bg-[#CCFF00]/10 px-3.5 py-2.5 text-xs font-bold text-[#CCFF00] transition-colors hover:bg-[#CCFF00]/20 sm:text-sm"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Live Group Draw</span>
-              </a>
+                );
+              })}
             </div>
-          </div>
+
+            <p className="px-5 py-4 text-[9px] font-mono font-bold uppercase tracking-widest text-slate-400">
+              CPA – India Padel Tour Qatar &copy; 2026
+            </p>
+          </nav>
         </div>
       )}
     </header>

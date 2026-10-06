@@ -2,6 +2,7 @@ import React from 'react';
 import { Group, StandingsRow, TournamentSettings } from '../types';
 import { CheckCircle2 } from 'lucide-react';
 import { pairLabel } from '../utils/teamDisplay';
+import { StickyHero } from './StickyHero';
 
 interface StandingsViewProps {
   groups: Group[];
@@ -31,12 +32,12 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
       {/* Header — same display treatment as the "Live Padel Scores" hero on
           the Scores page: huge two-line ink display type, no icon. */}
-      <div className="text-center pt-4 sm:pt-6 px-2 pb-4 sm:pb-8">
+      <StickyHero className="text-center pt-4 sm:pt-6 px-2 pb-4 sm:pb-8">
         <h2 className="font-display font-bold uppercase tracking-tight text-[#0A0A0F] leading-[0.85] text-7xl sm:text-8xl md:text-9xl lg:text-[10rem]">
           Tournament
           <span className="block">Standings</span>
         </h2>
-      </div>
+      </StickyHero>
 
       {/* Qualified Teams Spotlight Banner — mirrors the Live Matches card on
           the Scores page: big stacked display heading, then the team tiles.
@@ -80,7 +81,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
       )}
 
       {/* Full 5 Groups Tables — same card design as the Scores page standings card */}
-      <div className="grid grid-cols-1 gap-6 sm:gap-8">
+      <div className="relative z-10 grid grid-cols-1 gap-6 sm:gap-8">
         {groups.map((group) => {
           const rows = standings[group.id] || [];
 

@@ -3,6 +3,7 @@ import { Court } from '../types';
 import { EnrichedMatch } from '../api';
 import { formatPointDisplay } from '../scoring/scoringEngine';
 import { pairLabel } from '../utils/teamDisplay';
+import { StickyHero } from './StickyHero';
 
 interface LiveCourtsViewProps {
   courts: Court[];
@@ -17,18 +18,16 @@ export const LiveCourtsView: React.FC<LiveCourtsViewProps> = ({
 }) => {
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
-      {/* Header — same display treatment as the "Live Padel Scores" hero on
-          the Scores page: huge two-line ink display type, no badge, no
-          subtitle. */}
-      <div className="text-center pt-4 sm:pt-6 px-2 pb-4 sm:pb-8">
+      {/* Hero: pins to the top while the courts scroll over it (StickyHero) */}
+      <StickyHero className="text-center pt-4 sm:pt-6 px-2 pb-4 sm:pb-8">
         <h2 className="font-display font-bold uppercase tracking-tight text-[#0A0A0F] leading-[0.85] text-7xl sm:text-8xl md:text-9xl lg:text-[10rem]">
           Live Court
           <span className="block">Status</span>
         </h2>
-      </div>
+      </StickyHero>
 
-      {/* Grid of Courts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      {/* Grid of Courts (z-10: scrolls over the hero) */}
+      <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {courts.map((court) => {
           // Find currently live match on this court
           const liveMatch = matches.find(

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Team, Group, StandingsRow } from '../types';
 import { EnrichedMatch } from '../api';
-import { Search, Users, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Search, ChevronDown } from 'lucide-react';
 import { pairLabel } from '../utils/teamDisplay';
+import { stageLabel } from '../utils/matchStage';
+import { StickyHero } from './StickyHero';
 
 interface TeamSearchViewProps {
   teams: Team[];
@@ -31,6 +33,10 @@ function useMediaQuery(query: string): boolean {
   return matches;
 }
 
+/** Keep the "/" glued to the first name so it never wraps onto its own line. */
+const pairText = (pair?: { player1?: string; player2?: string } | null, fallback = 'TBD') =>
+  pairLabel(pair, fallback).replace(' / ', ' / ');
+
 export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
   teams,
   groups,
@@ -51,14 +57,26 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
     }
   }, [initialSelectedTeamId]);
 
-  // Filtered teams list based on search term
+  const standingOf = (team: Team) =>
+    (standings[team.groupId] || []).find((r) => r.teamId === team.id);
+
+  // Search by player or group name
+  const q = searchTerm.trim().toLowerCase();
   const filteredTeams = teams.filter((t) => {
-    const q = searchTerm.toLowerCase();
-    const player1 = t.player1.toLowerCase();
-    const player2 = t.player2.toLowerCase();
+    if (!q) return true;
     const group = groups.find((g) => g.id === t.groupId)?.name.toLowerCase() || '';
-    return player1.includes(q) || player2.includes(q) || group.includes(q);
+    return t.player1.toLowerCase().includes(q) || t.player2.toLowerCase().includes(q) || group.includes(q);
   });
+
+  // Teams grouped by group, each ordered by current group position
+  const teamsByGroup = groups
+    .map((group) => ({
+      group,
+      teams: filteredTeams
+        .filter((t) => t.groupId === group.id)
+        .sort((a, b) => (standingOf(a)?.position ?? 99) - (standingOf(b)?.position ?? 99)),
+    }))
+    .filter((g) => g.teams.length > 0);
 
   // Desktop always shows a profile; mobile starts fully collapsed.
   const desktopTeam = teams.find((t) => t.id === selectedTeamId) || teams[0];
@@ -74,43 +92,44 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
 
   const searchInput = (
     <div className="relative">
-      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+      <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
       <input
         type="text"
         id="team-search-input"
         placeholder="Search by player name..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        className="w-full pl-9 pr-4 py-2.5 bg-white border border-blue-300/80 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 shadow-md font-medium"
+        className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 font-medium"
       />
     </div>
   );
 
+  /** One pairing row inside a group card (position badge, name, points). */
   const renderTeamRow = (team: Team, isOpen: boolean, showChevron: boolean) => {
-    const gName = groups.find((g) => g.id === team.groupId)?.name;
-
+    const row = standingOf(team);
     return (
       <button
         type="button"
         id={`team-item-${team.id}`}
         onClick={() => handleSelectTeam(team.id)}
         aria-expanded={showChevron ? isOpen : undefined}
-        className={`w-full text-left flex items-center justify-between gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all duration-200 shadow-sm ${
-          isOpen
-            ? 'bg-white border-2 border-[#0A0A0F] text-slate-950 shadow-md ring-2 ring-[#CCFF00]/50'
-            : 'bg-white/90 border-slate-200 hover:bg-white hover:border-blue-400 text-slate-800'
+        className={`w-full text-left flex items-center gap-3 px-4 sm:px-5 py-3.5 transition-colors cursor-pointer ${
+          isOpen ? 'bg-blue-50' : 'hover:bg-blue-50/60'
         }`}
       >
-        <span className="min-w-0">
-          <span className="flex items-center gap-2 text-xs mb-1 font-mono">
-            <span className="font-bold text-blue-700">{gName}</span>
-            <span className="text-[11px] text-slate-400">Padel Pair</span>
-          </span>
-          <span className="block font-black text-sm text-slate-900 leading-tight truncate">
-            {pairLabel(team, 'TBD')}
-          </span>
+        <span
+          className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-display font-black shrink-0 ${
+            row?.qualified ? 'bg-[#0A0A0F] text-[#CCFF00]' : 'bg-slate-100 text-slate-500'
+          }`}
+        >
+          {row?.position ?? '–'}
         </span>
-
+        <span className="flex-1 min-w-0 font-extrabold text-sm sm:text-base text-[#0A0A0F] leading-snug">
+          {pairText(team)}
+        </span>
+        <span className="shrink-0 text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500 tabular-nums">
+          {row?.points ?? 0} pts
+        </span>
         {showChevron && (
           <ChevronDown
             className={`w-4 h-4 shrink-0 transition-transform duration-300 ease-out ${
@@ -122,237 +141,206 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
     );
   };
 
-  const renderTeamDetails = (team: Team) => {
+  /** Profile: stats strip + match log, in the site's tile language. */
+  const renderTeamDetails = (team: Team, withName: boolean) => {
+    const row = standingOf(team);
     const group = groups.find((g) => g.id === team.groupId);
-    const groupStandings = standings[team.groupId] || [];
-    const teamStanding = groupStandings.find((r) => r.teamId === team.id);
-    const teamMatches = matches.filter(
-      (m) => m.team1Id === team.id || m.team2Id === team.id
-    );
+    const teamMatches = matches
+      .filter((m) => m.team1Id === team.id || m.team2Id === team.id)
+      .sort((a, b) => a.matchNumber - b.matchNumber);
+    const diff = row?.scoreDiff ?? 0;
+
+    const stats: [string, React.ReactNode][] = [
+      ['Pos', row?.position ? `#${row.position}` : '–'],
+      ['MP', row?.matchesPlayed ?? 0],
+      ['W', row?.wins ?? 0],
+      ['L', row?.losses ?? 0],
+      ['Diff', diff > 0 ? `+${diff}` : diff],
+    ];
 
     return (
-      <div className="space-y-4 sm:space-y-6">
-        {/* Team Banner Card */}
-        <div className="rounded-3xl bg-white border border-blue-300/80 p-5 sm:p-6 shadow-xl relative overflow-hidden text-slate-900">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+      <div className="space-y-3">
+        {withName && (
+          <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-blue-100 text-blue-900 border border-blue-300">
-                  {group?.name || 'Group'}
-                </span>
-                {teamStanding?.qualified && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-blue-100 text-blue-900 border border-blue-300">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-700" />
-                    Qualified
-                  </span>
-                )}
+              <div className="text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-widest text-blue-800/80">
+                {group?.name}
               </div>
-              <div className="font-sans text-xl sm:text-2xl font-bold text-[#0A0A0F] uppercase tracking-tight leading-tight">
-                {pairLabel(team, 'TBD')}
+              <div className="text-3xl sm:text-4xl font-display font-semibold uppercase tracking-tight leading-[0.95] text-[#0A0A0F]">
+                {pairText(team)}
               </div>
             </div>
-
-            {/* Rank Badge */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center sm:min-w-[120px] shadow-sm">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
-                Group Position
+            {row?.qualified && (
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-black uppercase tracking-wider bg-[#0A0A0F] text-[#CCFF00]">
+                In a qualifying place
               </span>
-              <span className="text-3xl font-display font-black text-[#0A0A0F]">
-                #{teamStanding?.position || '—'}
-              </span>
-            </div>
+            )}
           </div>
+        )}
 
-          {/* Stats Strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mt-5 sm:mt-6 pt-5 border-t border-slate-100">
-            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center">
-              <span className="text-[10px] text-slate-500 uppercase font-mono font-bold block">Played</span>
-              <span className="text-lg font-mono font-black text-slate-900">{teamStanding?.matchesPlayed || 0}</span>
-            </div>
-            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center">
-              <span className="text-[10px] text-slate-500 uppercase font-mono font-bold block">Wins</span>
-              <span className="text-lg font-mono font-black text-blue-700">{teamStanding?.wins || 0}</span>
-            </div>
-            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center">
-              <span className="text-[10px] text-slate-500 uppercase font-mono font-bold block">Losses</span>
-              <span className="text-lg font-mono font-black text-rose-600">{teamStanding?.losses || 0}</span>
-            </div>
-            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center">
-              <span className="text-[10px] text-slate-500 uppercase font-mono font-bold block">Diff</span>
-              <span className="text-lg font-mono font-black text-slate-900">
-                {(teamStanding?.scoreDiff || 0) > 0 ? `+${teamStanding?.scoreDiff}` : teamStanding?.scoreDiff || 0}
+        {/* Stats strip — same numbers as the standings table, Pts as the ink badge */}
+        <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
+          {stats.map(([label, value]) => (
+            <div key={label} className="py-2 rounded-xl bg-white border border-slate-200 text-center">
+              <span className="block text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                {label}
+              </span>
+              <span className="block text-sm sm:text-base font-mono font-black text-[#0A0A0F] tabular-nums">
+                {value}
               </span>
             </div>
-            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center col-span-2 sm:col-span-1">
-              <span className="text-[10px] text-slate-500 uppercase font-mono font-bold block">Points</span>
-              <span className="text-lg font-display font-black text-[#0A0A0F]">
-                {teamStanding?.points || 0}
-              </span>
-            </div>
+          ))}
+          <div className="py-2 rounded-xl bg-[#0A0A0F] text-center">
+            <span className="block text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-white/60">
+              Pts
+            </span>
+            <span className="block text-sm sm:text-base font-display font-black text-[#CCFF00] tabular-nums">
+              {row?.points ?? 0}
+            </span>
           </div>
         </div>
 
-        {/* Matches Log */}
-        <div className="bg-white border border-blue-300/80 rounded-3xl p-5 sm:p-6 shadow-xl text-slate-900">
-          <h4 className="text-sm font-bold uppercase tracking-wider text-[#0A0A0F] mb-4 flex flex-wrap items-center justify-between gap-1">
-            <span>Group Matches ({teamMatches.length})</span>
-            <span className="text-[11px] font-mono font-bold text-slate-500">Opponent • Score • Outcome</span>
-          </h4>
-
-          <div className="space-y-3">
-            {teamMatches.map((m) => {
-              const isTeam1 = m.team1Id === team.id;
-              const opponent = isTeam1 ? m.team2 : m.team1;
-              const myScore = isTeam1 ? m.team1Score : m.team2Score;
-              const oppScore = isTeam1 ? m.team2Score : m.team1Score;
-
-              let outcomeBadge = (
-                <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold bg-slate-100 text-slate-600 border border-slate-200 whitespace-nowrap">
-                  Scheduled
-                </span>
-              );
-
-              if (m.status === 'completed') {
-                if ((myScore ?? 0) > (oppScore ?? 0)) {
-                  outcomeBadge = (
-                    <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-black uppercase tracking-wider bg-blue-100 text-blue-900 border border-blue-300">
-                      Win
-                    </span>
-                  );
-                } else {
-                  outcomeBadge = (
-                    <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-200">
-                      Loss
-                    </span>
-                  );
-                }
-              } else if (m.status === 'live') {
-                outcomeBadge = (
-                  <span className="px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-[#CCFF00] text-slate-950 animate-pulse shadow-sm">
-                    LIVE
-                  </span>
-                );
-              }
-
-              return (
-                <div
-                  key={m.id}
-                  className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 hover:border-blue-400 transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500 mb-1 flex-wrap">
-                      <span>Match #{m.matchNumber}</span>
-                      <span>•</span>
-                      <span>{m.court?.name || 'Court'}</span>
-                      <span>•</span>
-                      <span>{m.scheduledTime}</span>
-                    </div>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-slate-400 font-normal text-[10px] uppercase font-mono shrink-0">vs</span>
-                      <span className="text-sm font-black text-slate-900 leading-tight">
-                        {pairLabel(opponent, 'Opponent')}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="text-center font-display font-extrabold text-base shrink-0">
-                    {m.status === 'completed' || m.status === 'live' ? (
-                      <div>
-                        <span className="text-[#0A0A0F] font-black whitespace-nowrap">
-                          {myScore} — {oppScore}
-                        </span>
-                        {m.scoreSummary && (
-                          <div className="text-[10px] font-mono text-blue-700 font-bold mt-0.5">
-                            {m.scoreSummary}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs font-bold text-slate-400 uppercase font-mono">—</span>
-                    )}
-                  </div>
-
-                  <div className="shrink-0">{outcomeBadge}</div>
-                </div>
-              );
-            })}
+        {!withName && row?.qualified && (
+          <div className="text-[10px] font-mono font-black uppercase tracking-widest text-blue-800/80">
+            ● Currently in a qualifying place
           </div>
+        )}
+
+        {/* Match log — tiles like the Fixtures page */}
+        <div className="space-y-2">
+          <div className="text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-widest text-slate-500">
+            Matches ({teamMatches.length})
+          </div>
+          {teamMatches.map((m) => {
+            const isTeam1 = m.team1Id === team.id;
+            const opponent = isTeam1 ? m.team2 : m.team1;
+            const myScore = isTeam1 ? m.team1Score : m.team2Score;
+            const oppScore = isTeam1 ? m.team2Score : m.team1Score;
+            const isLive = m.status === 'live';
+            const isDone = m.status === 'completed';
+            const won = isDone && m.walkover !== 'both' && (myScore ?? 0) > (oppScore ?? 0);
+
+            const pill = isLive ? (
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-black bg-[#CCFF00] text-[#0A0A0F] flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#0A0A0F] animate-pulse" />
+                LIVE
+              </span>
+            ) : isDone ? (
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-black uppercase ${
+                  won ? 'bg-[#0A0A0F] text-[#CCFF00]' : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                {won ? 'Win' : 'Loss'}
+                {m.walkover ? ' · W/O' : ''}
+              </span>
+            ) : (
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-black bg-[#0A0A0F] text-[#CCFF00]">
+                {m.scheduledTime || 'TBD'}
+              </span>
+            );
+
+            return (
+              <div key={m.id} className="p-3 rounded-2xl bg-white border border-slate-200">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <span className="text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider text-blue-700 truncate min-w-0">
+                    Match #{m.matchNumber} • {stageLabel(m)}
+                    {m.court?.name ? ` • ${m.court.name}` : ''}
+                  </span>
+                  <span className="shrink-0">{pill}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 text-sm font-extrabold text-[#0A0A0F] leading-snug">
+                    <span className="text-[10px] font-mono font-bold uppercase text-slate-400 mr-1.5">vs</span>
+                    {pairText(opponent, 'To be decided')}
+                  </span>
+                  {(isLive || isDone) && (
+                    <span className="shrink-0 px-2.5 py-1 rounded-xl bg-[#0A0A0F] font-display font-black text-sm tabular-nums">
+                      <span className={won || isLive ? 'text-[#CCFF00]' : 'text-zinc-400'}>{myScore ?? 0}</span>
+                      <span className="text-zinc-500 mx-1">—</span>
+                      <span className="text-zinc-400">{oppScore ?? 0}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
   };
 
-  return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-900/20">
-        <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0A0A0F] text-[#CCFF00] text-xs font-black uppercase tracking-wider mb-2 shadow-sm">
-            <Users className="w-3.5 h-3.5" />
-            Player Portal
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-display font-bold text-[#0A0A0F] uppercase tracking-tight">
-            Player Profiles &amp; Match Log
-          </h2>
-          <p className="text-xs font-mono font-bold text-slate-800 mt-0.5">
-            {isDesktop
-              ? 'Search your pairing to check scheduled fixtures, game scores, and current qualification rank'
-              : 'Tap a pairing to open its fixtures, game scores and qualification rank'}
-          </p>
-        </div>
+  /** A white group card with the ink band, holding its pairings. */
+  const renderGroupCard = (group: Group, groupTeams: Team[], accordion: boolean) => (
+    <section
+      key={group.id}
+      className="bg-white border border-blue-300/80 rounded-3xl overflow-hidden shadow-xl text-slate-900"
+    >
+      <div className="px-5 sm:px-6 py-4 sm:py-5 bg-[#0A0A0F] flex items-center justify-between gap-3">
+        <span className="text-2xl sm:text-3xl font-display font-semibold uppercase tracking-wide text-[#CCFF00] leading-none">
+          {group.name}
+        </span>
+        <span className="text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-widest text-white/60">
+          {groupTeams.length} {groupTeams.length === 1 ? 'pair' : 'pairs'}
+        </span>
       </div>
-
-      {isDesktop ? (
-        /* Desktop: list on the left, profile permanently docked on the right */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-4 space-y-3">
-            {searchInput}
-            <div
-              id="team-search-results-list"
-              className="space-y-2 max-h-[600px] overflow-y-auto pr-1"
-            >
-              {filteredTeams.map((team) => (
-                <div key={team.id}>
-                  {renderTeamRow(team, team.id === desktopTeam?.id, false)}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="lg:col-span-8">
-            {desktopTeam && renderTeamDetails(desktopTeam)}
-          </div>
-        </div>
-      ) : (
-        /* Mobile: one pairing open at a time, unfolding in place */
-        <div className="space-y-3">
-          {searchInput}
-
-          <div id="team-search-results-list" className="space-y-2.5">
-            {filteredTeams.length === 0 && (
-              <div className="py-10 text-center text-sm text-slate-600 font-mono bg-white/80 rounded-2xl border border-blue-300">
-                No pairings match "{searchTerm}".
-              </div>
-            )}
-
-            {filteredTeams.map((team) => {
-              const isOpen = team.id === selectedTeamId;
-
-              return (
-                <div key={team.id}>
-                  {renderTeamRow(team, isOpen, true)}
-
-                  <div className={`accordion-panel ${isOpen ? 'is-open' : ''}`}>
-                    <div className="accordion-panel-inner">
-                      <div className="pt-2.5">{renderTeamDetails(team)}</div>
-                    </div>
+      <div className="divide-y divide-slate-100">
+        {groupTeams.map((team) => {
+          const isOpen = accordion ? team.id === selectedTeamId : team.id === desktopTeam?.id;
+          return (
+            <div key={team.id}>
+              {renderTeamRow(team, isOpen, accordion)}
+              {accordion && (
+                <div className={`accordion-panel ${isOpen ? 'is-open' : ''}`}>
+                  <div className="accordion-panel-inner">
+                    <div className="px-3 sm:px-4 pb-4 pt-1 bg-blue-50">{renderTeamDetails(team, false)}</div>
                   </div>
                 </div>
-              );
-            })}
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+
+  const noResults = (
+    <div className="py-10 text-center text-xs italic font-mono text-slate-500 bg-white rounded-3xl border border-blue-300/80 shadow-xl">
+      No pairings match "{searchTerm}".
+    </div>
+  );
+
+  return (
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
+      {/* Hero: pins to the top while the directory scrolls over it */}
+      <StickyHero className="text-center pt-4 sm:pt-6 px-2 pb-4 sm:pb-8">
+        <h2 className="font-display font-bold uppercase tracking-tight text-[#0A0A0F] leading-[0.85] text-7xl sm:text-8xl md:text-9xl lg:text-[10rem]">
+          Team
+          <span className="block">Directory</span>
+        </h2>
+      </StickyHero>
+
+      <div className="relative z-10 space-y-4">
+        {/* Search card */}
+        <div className="rounded-3xl bg-white border border-blue-300/80 shadow-xl p-4 sm:p-5">{searchInput}</div>
+
+        {isDesktop ? (
+          /* Desktop: group cards on the left, profile docked on the right */
+          <div className="grid grid-cols-12 gap-6 items-start">
+            <div id="team-search-results-list" className="col-span-5 space-y-4">
+              {teamsByGroup.length === 0 ? noResults : teamsByGroup.map(({ group, teams: groupTeams }) => renderGroupCard(group, groupTeams, false))}
+            </div>
+            <div className="col-span-7 sticky top-4 rounded-3xl bg-white border border-blue-300/80 shadow-xl p-5 sm:p-6">
+              {desktopTeam && renderTeamDetails(desktopTeam, true)}
+            </div>
           </div>
-        </div>
-      )}
+        ) : (
+          /* Mobile: one pairing open at a time, unfolding inside its group card */
+          <div id="team-search-results-list" className="space-y-4">
+            {teamsByGroup.length === 0 ? noResults : teamsByGroup.map(({ group, teams: groupTeams }) => renderGroupCard(group, groupTeams, true))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

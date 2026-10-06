@@ -463,3 +463,11 @@
     animation: none;
   }
 }
+
+/* Horizontal pill-tab rows: still swipeable, but no visible scrollbar line. */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

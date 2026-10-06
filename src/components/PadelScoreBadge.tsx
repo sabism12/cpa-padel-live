@@ -20,32 +20,31 @@ export const PadelScoreBadge: React.FC<PadelScoreBadgeProps> = ({ match, size = 
 
     return (
       <div className="flex flex-col items-center gap-1.5">
-        {/* Games & Current Game Points Badge */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950 border border-rose-500/40 shadow-md">
-          {/* Games Count */}
-          <div className="flex items-center gap-1 font-display font-black text-white text-base sm:text-lg">
-            <span className="text-lime-400">{padel.team1Games}</span>
-            <span className="text-slate-600 text-xs">—</span>
-            <span className="text-sky-400">{padel.team2Games}</span>
+        {/* Games + current game points, in the site's ink/volt palette */}
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0A0A0F] border border-zinc-700 shadow-md">
+          <div className="flex items-center gap-1 font-display font-black text-base sm:text-lg text-[#CCFF00]">
+            <span>{padel.team1Games}</span>
+            <span className="text-zinc-500 text-xs">—</span>
+            <span>{padel.team2Games}</span>
           </div>
 
-          <span className="text-slate-600">|</span>
+          <span className="w-px h-4 bg-zinc-700" aria-hidden="true" />
 
-          {/* Current Game Point (Love / 15 / 30 / 40 or GOLDEN POINT) */}
+          {/* Current game point (Love / 15 / 30 / 40) or Golden Point */}
           <div
-            className={`flex items-center gap-1 text-xs font-black px-2 py-0.5 rounded-md ${
-              isGolden
-                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                : 'bg-rose-500/15 text-rose-300'
+            className={`flex items-center gap-1 text-[11px] font-mono font-black px-1.5 py-0.5 rounded-md ${
+              isGolden ? 'bg-amber-400 text-[#0A0A0F]' : 'bg-white/10 text-white'
             }`}
           >
             {isGolden ? (
               <>
-                <Flame className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                <span>GOLDEN POINT</span>
+                <Flame className="w-3 h-3" />
+                <span>GOLDEN</span>
               </>
             ) : (
-              <span>{p1Label} - {p2Label}</span>
+              <span>
+                {p1Label} - {p2Label}
+              </span>
             )}
           </div>
         </div>
@@ -69,11 +68,11 @@ export const PadelScoreBadge: React.FC<PadelScoreBadgeProps> = ({ match, size = 
     return (
       <div className="flex flex-col items-center gap-1">
         <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-950 border border-slate-800 font-display font-black text-base">
-          <span className={team1Won ? 'text-lime-400 font-black' : 'text-slate-400'}>
+          <span className={team1Won ? 'text-[#CCFF00] font-black' : 'text-slate-400'}>
             {g1}
           </span>
           <span className="text-slate-600">—</span>
-          <span className={!team1Won ? 'text-lime-400 font-black' : 'text-slate-400'}>
+          <span className={!team1Won ? 'text-[#CCFF00] font-black' : 'text-slate-400'}>
             {g2}
           </span>
         </div>
@@ -84,7 +83,7 @@ export const PadelScoreBadge: React.FC<PadelScoreBadgeProps> = ({ match, size = 
   // Live without padelState
   if (isLive) {
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950 border border-rose-500/40 font-display font-extrabold text-base text-rose-400">
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0A0A0F] border border-zinc-700 font-display font-black text-base text-[#CCFF00]">
         <span>{match.team1Score ?? 0}</span>
         <span className="text-slate-600">—</span>
         <span>{match.team2Score ?? 0}</span>

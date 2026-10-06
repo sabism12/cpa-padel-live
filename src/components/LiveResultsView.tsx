@@ -1,5 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { motion, useScroll, useTransform } from 'motion/react';
+import React, { useState } from 'react';
 import {
   Activity,
   CheckCircle2,
@@ -14,6 +13,7 @@ import {
 import { Group, StandingsRow, TournamentSettings } from '../types';
 import { EnrichedMatch, SummaryData } from '../api';
 import { PadelScoreBadge } from './PadelScoreBadge';
+import { StickyHero } from './StickyHero';
 import { formatPointDisplay } from '../scoring/scoringEngine';
 import { pairLabel } from '../utils/teamDisplay';
 
@@ -56,51 +56,6 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
   const currentStandings = standings[selectedGroupId] || [];
   const currentGroup = groups.find((g) => g.id === selectedGroupId);
 
-  // Reference-style hero transition, in two phases:
-  //  1) the LIVE PADEL SCORES headline scrolls up at page speed until it
-  //     reaches the top of the viewport (no early animation);
-  //  2) it pins there, and the LIVE MATCHES card keeps rising over it —
-  //     while the card covers the text, it shrinks and fades out gradually.
-  // The pin point and cover distance are measured from the real layout, so
-  // they stay correct on any screen size or mid-page reload.
-  const pinRef = useRef<HTMLDivElement>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [pinScroll, setPinScroll] = useState(0);
-  const [coverDistance, setCoverDistance] = useState(1);
-  useEffect(() => {
-    const measure = () => {
-      const pinEl = pinRef.current;
-      const cardEl = cardRef.current;
-      if (!pinEl || !cardEl) return;
-      const y = window.scrollY;
-      const pinTop = pinEl.getBoundingClientRect().top + y;
-      const cardTop = cardEl.getBoundingClientRect().top + y;
-      setPinScroll(Math.max(0, pinTop));
-      setCoverDistance(Math.max(1, cardTop - pinTop));
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    // Re-measure once webfonts settle (they change the hero text height).
-    if (typeof document !== 'undefined' && document.fonts?.ready) {
-      document.fonts.ready.then(measure).catch(() => undefined);
-    }
-    const t = window.setTimeout(measure, 600);
-    return () => {
-      window.removeEventListener('resize', measure);
-      window.clearTimeout(t);
-    };
-  }, []);
-
-  const { scrollY } = useScroll();
-  // Phase 1: hero rides the page normally (y = 0). Phase 2 (after the text
-  // has reached the top): keep it visually pinned by offsetting page scroll.
-  const heroY = useTransform(scrollY, (v) => Math.max(0, v - pinScroll));
-  // Covered depth of the pinned text, 0 -> 1 while the card rises over it.
-  const cover = useTransform(scrollY, (v) =>
-    Math.min(1, Math.max(0, (v - pinScroll) / coverDistance))
-  );
-  const heroOpacity = useTransform(cover, [0, 1], [1, 0]);
-
   // Format time since completion
   const formatTimeAgo = (isoString?: string) => {
     if (!isoString) return 'recently';
@@ -115,14 +70,12 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
 
   return (
     <div className="space-y-5 sm:space-y-8 animate-in fade-in duration-300">
-      {/* LIVE PADEL SCORES hero. Phase 1: scrolls normally to the top. The
-           wrapper (pinRef) provides the layout anchor for the pin point. */}
-      <div ref={pinRef} className="relative pb-8 sm:pb-12">
-        <motion.section
-          id="section-live-scores-hero"
-          style={{ y: heroY, opacity: heroOpacity }}
-          className="relative z-0 text-center pt-4 sm:pt-6 px-2 will-change-transform pointer-events-none"
-        >
+      {/* LIVE PADEL SCORES hero: pins to the top while the card below
+           scrolls over it, fading out (see StickyHero). */}
+      <StickyHero
+        id="section-live-scores-hero"
+        className="text-center pt-4 sm:pt-6 px-2 pb-8 sm:pb-12"
+      >
         <h1 className="font-display font-bold uppercase tracking-tight text-[#0A0A0F] leading-[0.85] text-7xl sm:text-8xl md:text-9xl lg:text-[10rem]">
           Live Padel
           <span className="block">Scores</span>
@@ -130,13 +83,11 @@ export const LiveResultsView: React.FC<LiveResultsViewProps> = ({
         <p className="mt-4 sm:mt-6 text-base sm:text-lg lg:text-xl font-mono font-bold text-slate-800">
           See live match scores from every CPA event.
         </p>
-        </motion.section>
-      </div>
+      </StickyHero>
 
       {/* 🔴 Live Matches card — normal flow at full scroll speed; once the
            hero text is pinned this card rises OVER it (z-10 above it). */}
       <div
-        ref={cardRef}
         id="section-live-matches-card"
         className="relative z-10 overflow-hidden rounded-3xl bg-white shadow-xl text-slate-900"
       >

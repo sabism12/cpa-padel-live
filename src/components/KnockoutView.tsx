@@ -22,6 +22,7 @@ import {
 import { Match, Team, Court, Group, StandingsRow, TournamentSettings, AuthSession } from '../types';
 import { EnrichedMatch } from '../api';
 import { pairLabel } from '../utils/teamDisplay';
+import { StickyHero } from './StickyHero';
 
 interface KnockoutViewProps {
   matches: EnrichedMatch[];
@@ -96,6 +97,136 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
       championTeam = finalMatch.team2 || null;
     }
   }
+
+  // Short label for a knockout match, e.g. "QF1", "SF2" (no space, so it never wraps).
+  const knockoutLabel = (m?: EnrichedMatch) =>
+    !m ? '' : m.round === 'qf' ? `QF${m.bracketPosition}` : m.round === 'sf' ? `SF${m.bracketPosition}` : m.round === 'final' ? 'Final' : '3rd place';
+
+  // Where an empty slot's team will come from ("Winner QF 1", "Loser SF 2").
+  const slotSource = (m: EnrichedMatch, slot: 'team1' | 'team2'): string => {
+    const winnerFrom = knockoutMatches.find((x) => x.nextMatchId === m.id && x.nextMatchSlot === slot);
+    if (winnerFrom) return `Winner ${knockoutLabel(winnerFrom)}`;
+    const loserFrom = knockoutMatches.find((x) => x.loserNextMatchId === m.id && x.loserNextMatchSlot === slot);
+    if (loserFrom) return `Loser ${knockoutLabel(loserFrom)}`;
+    return m.round === 'qf' ? 'Drawn by lot' : 'To be decided';
+  };
+
+  const firstName = (name?: string) => (name || '').trim().split(/\s+/)[0] || '';
+
+  // Bracket connector joining two boxes above (down) or below (up) into one.
+  const renderJoin = (direction: 'down' | 'up') => (
+    <div aria-hidden="true" className="flex flex-col items-center">
+      {direction === 'up' && <div className="w-px h-4 bg-blue-500" />}
+      <div
+        className={`w-1/2 h-4 border-blue-500 ${
+          direction === 'down'
+            ? 'border-x border-b rounded-b-lg'
+            : 'border-x border-t rounded-t-lg'
+        }`}
+      />
+      {direction === 'down' && <div className="w-px h-4 bg-blue-500" />}
+    </div>
+  );
+
+  // One match box: both pairs side by side, score under each, loser struck out.
+  const renderNode = (
+    match: EnrichedMatch | undefined,
+    label: string,
+    badge?: 'final' | '3rd'
+  ) => {
+    if (!match) {
+      return (
+        <div className="h-24 rounded-2xl border border-dashed border-zinc-700 flex items-center justify-center text-[10px] font-mono font-bold uppercase text-zinc-500">
+          {label}
+        </div>
+      );
+    }
+
+    const isLive = match.status === 'live';
+    const isDone = match.status === 'completed';
+    const bothAbsent = match.walkover === 'both';
+    const t1Won = isDone && !bothAbsent && (match.team1Score ?? 0) > (match.team2Score ?? 0);
+    const t2Won = isDone && !bothAbsent && (match.team2Score ?? 0) > (match.team1Score ?? 0);
+    const games = (slot: 'team1' | 'team2') =>
+      slot === 'team1'
+        ? match.padelState?.team1Games ?? match.team1Score
+        : match.padelState?.team2Games ?? match.team2Score;
+
+    const side = (slot: 'team1' | 'team2', won: boolean, lost: boolean) => {
+      const raw = slot === 'team1' ? match.team1 : match.team2;
+      const id = slot === 'team1' ? match.team1Id : match.team2Id;
+      const team = id && (raw?.player1 || raw?.player2) ? raw : undefined;
+      const score = isLive || isDone ? games(slot) ?? 0 : null;
+      return (
+        <div className="flex-1 min-w-0 flex flex-col items-center text-center">
+          {team ? (
+            <div
+              className={`w-full text-[11px] sm:text-sm font-bold leading-tight ${
+                lost ? 'text-zinc-500 line-through decoration-zinc-500' : 'text-white'
+              }`}
+            >
+              <span className="block truncate">{firstName(team.player1)}</span>
+              <span className="block truncate">{firstName(team.player2)}</span>
+            </div>
+          ) : (
+            <div className="w-full text-[9px] sm:text-[10px] font-mono font-bold uppercase leading-tight text-zinc-500 py-0.5">
+              {slotSource(match, slot)}
+            </div>
+          )}
+          <div
+            className={`mt-1 text-base sm:text-lg font-display font-black tabular-nums leading-none ${
+              score === null ? 'text-zinc-700' : won || isLive ? 'text-[#CCFF00]' : 'text-zinc-500'
+            }`}
+          >
+            {score === null ? '–' : score}
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div className="relative pb-2.5">
+        <button
+          type="button"
+          onClick={() => setSelectedMatch(match)}
+          className={`w-full rounded-2xl px-2 pt-2 pb-2.5 text-left transition-colors cursor-pointer ${
+            badge === 'final'
+              ? 'bg-zinc-900 border-2 border-[#CCFF00]/70 hover:border-[#CCFF00]'
+              : isLive
+              ? 'bg-zinc-900 border-2 border-[#CCFF00]'
+              : 'bg-zinc-900 border border-zinc-800 hover:border-blue-500'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-1 mb-1.5 px-0.5 text-[8px] sm:text-[9px] font-mono font-black uppercase tracking-wider">
+            <span className="text-blue-400">{label}</span>
+            {isLive ? (
+              <span className="flex items-center gap-1 text-[#CCFF00]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse" />
+                Live
+              </span>
+            ) : isDone ? (
+              <span className="text-zinc-500">{match.walkover ? 'W/O' : 'FT'}</span>
+            ) : (
+              <span className="text-zinc-400">{match.scheduledTime || ''}</span>
+            )}
+          </div>
+          <div className="flex items-start gap-1">
+            {side('team1', t1Won, t2Won)}
+            {side('team2', t2Won, t1Won)}
+          </div>
+        </button>
+        {badge && (
+          <span
+            className={`absolute left-1/2 -translate-x-1/2 bottom-0 px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-black uppercase ${
+              badge === 'final' ? 'bg-[#CCFF00] text-[#0A0A0F]' : 'bg-blue-500 text-white'
+            }`}
+          >
+            {badge === 'final' ? 'Final' : '3rd'}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   // Render Team Node inside Card (site aesthetic: stacked names, no avatars)
   const renderTeamNode = (
@@ -222,132 +353,91 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300 max-w-6xl mx-auto">
-      {/* 1. HEADER — huge hero like "Live Padel Scores" (no badge, no subtitle,
-          no sub-nav tabs). The Tree/Bracket/List toggle is kept, restyled to
-          the site's pill language. */}
-      <div className="text-center pt-4 sm:pt-6 px-2 pb-4 sm:pb-8">
+      {/* 1. HEADER — pins to the top while the bracket scrolls over it
+          (StickyHero). The Tree/Bracket/List toggle is its own row below,
+          so it stays tappable and scrolls over the heading too. */}
+      <StickyHero className="text-center pt-4 sm:pt-6 px-2 pb-2 sm:pb-4">
         <h2 className="font-display font-bold uppercase tracking-tight text-[#0A0A0F] leading-[0.85] text-7xl sm:text-8xl md:text-9xl lg:text-[10rem]">
           Knockout
           <span className="block">Stage</span>
         </h2>
+      </StickyHero>
 
-        <div className="mt-6 sm:mt-8 flex items-center justify-center gap-1.5 p-1.5 bg-white/90 backdrop-blur-md border border-blue-400/60 rounded-2xl shadow-md w-max mx-auto">
-          {([
-            ['fotmob', 'Tree'],
-            ['bracket', 'Bracket'],
-            ['list', 'List'],
-          ] as const).map(([mode, label]) => (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black tracking-wider uppercase transition-all whitespace-nowrap cursor-pointer ${
-                viewMode === mode
-                  ? 'bg-[#0A0A0F] text-[#CCFF00] shadow-md'
-                  : 'text-slate-800 hover:bg-blue-100 hover:text-slate-950'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      <div className="relative z-10 flex items-center justify-center gap-1.5 p-1.5 bg-white/90 backdrop-blur-md border border-blue-400/60 rounded-2xl shadow-md w-max mx-auto">
+        {([
+          ['fotmob', 'Tree'],
+          ['bracket', 'Bracket'],
+          ['list', 'List'],
+        ] as const).map(([mode, label]) => (
+          <button
+            key={mode}
+            onClick={() => setViewMode(mode)}
+            className={`px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black tracking-wider uppercase transition-all whitespace-nowrap cursor-pointer ${
+              viewMode === mode
+                ? 'bg-[#0A0A0F] text-[#CCFF00] shadow-md'
+                : 'text-slate-800 hover:bg-blue-100 hover:text-slate-950'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      {/* 2. MAIN KNOCKOUT DISPLAY — vertical tree (rounds stacked top to
-          bottom) so it fits a phone screen with no horizontal scrolling.
-          Dark ink panel matching the site's card language. */}
+      {/* 2. MAIN KNOCKOUT DISPLAY — a real bracket tree (FotMob style),
+          mirrored around the Final so it fits a phone screen:
+            QF1 QF2  ->  SF1
+                         FINAL  (3rd place left, champion right)
+            QF3 QF4  ->  SF2
+          Connector lines are plain bordered boxes, so they scale with the
+          layout on any screen. */}
       {viewMode === 'fotmob' && (
-        <div className="relative px-3 sm:px-6 py-6 sm:py-8 rounded-3xl bg-[#0A0A0F] border-2 border-blue-400/60 shadow-2xl text-white">
-          <div className="relative max-w-md mx-auto flex flex-col items-center">
-            {/* ROUND 1: QUARTER-FINALS (2x2 grid on phones, 4-up from sm) */}
-            <div className="w-full grid grid-cols-2 gap-3 justify-items-center">
-              {([
-                ['QF 1', qf1],
-                ['QF 2', qf2],
-                ['QF 3', qf3],
-                ['QF 4', qf4],
-              ] as const).map(([label, match]) => (
-                <div key={label} className="flex flex-col items-center w-full">
-                  <span className="text-[10px] font-mono uppercase text-zinc-400 font-bold mb-1">{label}</span>
-                  {renderMatchCard(match, 'qf')}
-                </div>
-              ))}
+        <div className="relative z-10 rounded-3xl bg-[#0A0A0F] border border-zinc-800 shadow-2xl px-2.5 sm:px-6 py-6 sm:py-8 text-white">
+          <div className="max-w-xl mx-auto">
+            {/* Top half: QF1 + QF2 -> SF1 */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
+              {renderNode(qf1, 'QF 1')}
+              {renderNode(qf2, 'QF 2')}
             </div>
-
-            {/* Connector into semis */}
-            <div className="w-px h-7 bg-blue-400/60 my-1" />
-
-            {/* ROUND 2: SEMI-FINALS */}
-            <div className="w-full grid grid-cols-2 gap-3 justify-items-center">
-              {([
-                ['Semi-Final 1', sf1],
-                ['Semi-Final 2', sf2],
-              ] as const).map(([label, match]) => (
-                <div key={label} className="flex flex-col items-center w-full">
-                  <span className="text-[10px] font-mono uppercase text-zinc-400 font-bold mb-1">{label}</span>
-                  {renderMatchCard(match, 'sf')}
-                </div>
-              ))}
+            {renderJoin('down')}
+            <div className="flex justify-center">
+              <div className="w-1/2 px-1 sm:px-2">{renderNode(sf1, 'SF 1')}</div>
             </div>
+            <div className="mx-auto w-px h-5 bg-blue-500" />
 
-            {/* Connector into finals */}
-            <div className="w-px h-7 bg-blue-400/60 my-1" />
-
-            {/* ROUND 3: 3RD PLACE + GRAND FINAL (stacked) */}
-            <div className="w-full flex flex-col items-center gap-5">
-              <div className="flex flex-col items-center">
-                <div className="text-xs sm:text-sm font-mono uppercase text-sky-300 font-black mb-1.5 flex items-center gap-1.5 tracking-widest drop-shadow-[0_0_10px_rgba(56,189,248,0.6)]">
-                  <Award className="w-4 h-4" />
-                  <span>3rd Place Playoff</span>
+            {/* Middle: 3rd place | FINAL | champion */}
+            <div className="grid grid-cols-[1fr_1.25fr_0.75fr] gap-1.5 sm:gap-3 items-center">
+              <div>{renderNode(thirdPlaceMatch, '3rd', '3rd')}</div>
+              <div>{renderNode(finalMatch, 'Final', 'final')}</div>
+              <div className="flex flex-col items-center text-center">
+                <Trophy
+                  className={`w-10 h-10 sm:w-16 sm:h-16 ${championTeam ? 'text-[#CCFF00] drop-shadow-[0_0_14px_rgba(204,255,0,0.45)]' : 'text-zinc-600'}`}
+                  strokeWidth={1.6}
+                />
+                <div className={`mt-1.5 font-display font-semibold uppercase leading-[0.95] tracking-tight ${championTeam ? 'text-base sm:text-2xl text-white' : 'text-sm sm:text-xl text-zinc-500'}`}>
+                  {championTeam ? (
+                    <>
+                      <span className="block">{firstName(championTeam.player1)}</span>
+                      <span className="block">{firstName(championTeam.player2)}</span>
+                    </>
+                  ) : (
+                    'TBD'
+                  )}
                 </div>
-                {renderMatchCard(thirdPlaceMatch, '3rd')}
-              </div>
-
-              <div className="flex flex-col items-center">
-                <div className="text-base sm:text-xl font-display uppercase text-amber-300 font-bold mb-2 flex items-center gap-2 tracking-widest drop-shadow-[0_0_12px_rgba(251,191,36,0.65)]">
-                  <Crown className="w-5 h-5" />
-                  <span>Tournament Final</span>
+                <div className="mt-1 text-[9px] sm:text-[10px] font-mono font-black uppercase tracking-widest text-[#CCFF00]/80">
+                  Champion
                 </div>
-                {renderMatchCard(finalMatch, 'final')}
               </div>
             </div>
 
-            {/* Connector into champion */}
-            <div className="w-px h-7 bg-blue-400/60 my-1" />
-
-            {/* CHAMPION TROPHY SPOTLIGHT */}
-            <div className="flex flex-col items-center justify-center p-5 rounded-3xl bg-gradient-to-b from-amber-400/15 via-zinc-900 to-amber-400/10 border-2 border-amber-400 shadow-xl shadow-amber-500/10 min-w-[160px] sm:min-w-[180px] text-center group hover:scale-105 transition-transform duration-300">
-              {/* Cup Trophy Icon */}
-              <div className="relative mb-2">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-600 p-0.5 shadow-xl shadow-amber-500/30 flex items-center justify-center">
-                  <div className="w-full h-full bg-[#0A0A0F] rounded-2xl flex items-center justify-center relative overflow-hidden">
-                    <div className="absolute inset-0 bg-amber-500/10 animate-pulse" />
-                    <Trophy className="w-9 h-9 sm:w-11 sm:h-11 text-yellow-300 drop-shadow-md" />
-                  </div>
-                </div>
-                {/* Badge emblem overlay */}
-                {championTeam && (
-                  <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-gradient-to-br from-red-600 to-amber-600 border-2 border-white flex items-center justify-center shadow-lg">
-                    <span className="text-[10px]">🏆</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Champion Name */}
-              <div className="font-sans text-base sm:text-lg font-bold text-white tracking-tight line-clamp-1">
-                {championTeam ? pairLabel(championTeam) : 'TBD'}
-              </div>
-
-              {/* CHAMPION Label */}
-              <div className="text-xs font-mono font-black text-amber-400 uppercase tracking-widest mt-0.5 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-amber-400" />
-                <span>CHAMPION</span>
-              </div>
-
-              {championTeam && (
-                <div className="text-[10px] text-zinc-400 mt-1 font-mono font-bold">
-                  Group {championTeam.groupId?.replace('group-', '').toUpperCase()}
-                </div>
-              )}
+            {/* Bottom half (mirrored): SF2 <- QF3 + QF4 */}
+            <div className="mx-auto w-px h-5 bg-blue-500" />
+            <div className="flex justify-center">
+              <div className="w-1/2 px-1 sm:px-2">{renderNode(sf2, 'SF 2')}</div>
+            </div>
+            {renderJoin('up')}
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
+              {renderNode(qf3, 'QF 3')}
+              {renderNode(qf4, 'QF 4')}
             </div>
           </div>
         </div>
@@ -355,7 +445,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
 
       {/* 3. CLASSIC HORIZONTAL BRACKET VIEW */}
       {viewMode === 'bracket' && (
-        <div className="p-6 rounded-3xl bg-[#0A0A0F] border-2 border-blue-400/60 overflow-x-auto shadow-xl">
+        <div className="relative z-10 p-6 rounded-3xl bg-[#0A0A0F] border-2 border-blue-400/60 overflow-x-auto shadow-xl">
           <div className="min-w-[700px] grid grid-cols-3 gap-8 items-center">
             {/* Column 1: Quarter-Finals */}
             <div className="space-y-6">
@@ -406,7 +496,7 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
 
       {/* 4. LIST VIEW */}
       {viewMode === 'list' && (
-        <div className="space-y-4">
+        <div className="relative z-10 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             {knockoutMatches.map((m) => {
               const court = courts.find((c) => c.id === m.courtId);
