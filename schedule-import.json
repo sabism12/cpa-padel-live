@@ -81,8 +81,8 @@
     {
       "group": "D",
       "player1": "Ameen",
-      "player2": "Aflah",
-      "name": "Ameen / Aflah"
+      "player2": "Abdu",
+      "name": "Ameen / Abdu"
     },
     {
       "group": "D",
@@ -152,7 +152,7 @@
       "courtName": "Court 4 – Group D",
       "time": "8:00–8:30",
       "team1": "Mohammed Jalil / Abdullah Mahmoud",
-      "team2": "Ameen / Aflah"
+      "team2": "Ameen / Abdu"
     },
     {
       "group": "E",
@@ -232,7 +232,7 @@
       "courtName": "Court 4 – Group D",
       "time": "9:00–9:30",
       "team1": "Suhaim / Zubair",
-      "team2": "Ameen / Aflah"
+      "team2": "Ameen / Abdu"
     },
     {
       "group": "E",
@@ -312,7 +312,7 @@
       "courtName": "Court 4 – Group D",
       "time": "10:00–10:30",
       "team1": "Asim / Abhijit",
-      "team2": "Ameen / Aflah"
+      "team2": "Ameen / Abdu"
     },
     {
       "group": "E",
@@ -384,7 +384,7 @@
     ],
     "D": [
       "Mohammed Jalil / Abdullah Mahmoud",
-      "Ameen / Aflah",
+      "Ameen / Abdu",
       "Asim / Abhijit",
       "Suhaim / Zubair"
     ],

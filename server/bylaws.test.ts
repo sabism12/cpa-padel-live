@@ -56,6 +56,17 @@ function clearGroup(ids: string[]) {
   play(x, y, 6, 3); play(x, z, 6, 3); play(y, z, 6, 3);
 }
 
+/** Settle level teams by live toss: each team wins against every team after it. */
+function tossOrder(ids: string[]) {
+  ids.slice(0, -1).forEach((id, i) => store.recordToss(id, ids.slice(i + 1)));
+}
+
+const qualifiedIds = () =>
+  Object.values(store.calculateStandings() as Record<string, any[]>)
+    .flat()
+    .filter((r) => r.qualified)
+    .map((r) => r.teamId as string);
+
 before(async () => {
   const mod = await import('./store');
   store = mod.tournamentStore;
@@ -63,6 +74,27 @@ before(async () => {
   groups = store.state.groups.map((g: any) =>
     store.state.teams.filter((t: any) => t.groupId === g.id).map((t: any) => t.id)
   );
+});
+
+describe('player change: Ameen / Aflah is now Ameen / Abdu', () => {
+  it('renames the player in the roster and the draw, keeping the same team', () => {
+    const team = store.state.teams.find((t: any) => t.id === 'team-d2');
+    assert.equal(team.player1, 'Ameen');
+    assert.equal(team.player2, 'Abdu');
+    assert.equal(team.name, 'Ameen / Abdu');
+
+    const names = [
+      ...store.state.teams.flatMap((t: any) => [t.name, t.player1, t.player2]),
+      ...store.state.draw.pairs.flatMap((p: any) => [p.player1, p.player2]),
+    ];
+    assert.ok(!names.some((n: string) => /aflah/i.test(n)), 'no "Aflah" left anywhere');
+    assert.ok(
+      store.state.draw.pairs.some((p: any) => p.player1 === 'Ameen' && p.player2 === 'Abdu'),
+      'the draw lists the new pairing'
+    );
+    assert.ok(store.state.matches.some((m: any) => m.team1Id === 'team-d2' || m.team2Id === 'team-d2'),
+      'its matches still point at the same team');
+  });
 });
 
 describe('bylaw §3 — quarter-final qualification', () => {
@@ -78,6 +110,14 @@ describe('bylaw §3 — quarter-final qualification', () => {
       play(x1, x2, 6, 3); play(x2, x3, 6, 4); play(x3, x1, 6, 5);
       play(x1, x4, 6, 0); play(x2, x4, 6, 0); play(x3, x4, 6, 0);
     }
+    // x2/x3 finish level for 2nd, then the four runners-up are level for the
+    // last 3 places: nobody behind the group winners is in until the tosses.
+    assert.equal(qualifiedIds().length, 5, 'only the 5 clear group winners before the tosses');
+    assert.equal(row(a2).eliminated, true, 'a 3-pt runner-up cannot beat four 6-pt runners-up');
+    assert.equal(row(groups[1][2]).eliminated, false, 'level for 2nd place: waits for the toss');
+    for (const [, x2, x3] of groups.slice(1)) tossOrder([x2, x3]);
+    tossOrder(groups.slice(1).map((g) => g[1]));
+
     const standings = store.calculateStandings();
     const qualified = Object.values(standings).flat().filter((r: any) => r.qualified);
 
@@ -90,6 +130,55 @@ describe('bylaw §3 — quarter-final qualification', () => {
       'a weak runner-up (3 pts) does not beat runners-up on 6 pts'
     );
     assert.equal(row(a2).qualified, false, 'group A runner-up (3 pts) misses out');
+
+    const all = Object.values(standings).flat() as any[];
+    assert.equal(all.filter((r) => r.eliminated).length, 12, 'every other team is eliminated');
+    assert.ok(all.every((r) => !(r.qualified && r.eliminated)), 'never both');
+    assert.ok([a2, a3, a4].every((id) => row(id).eliminated), 'group A sends only its winner');
+    const lastRunnerUp = groups[4][1];
+    assert.equal(row(lastRunnerUp).eliminated, true, 'the runner-up that lost the toss is out');
+  });
+});
+
+describe('qualified / eliminated only once the place is certain', () => {
+  it('nobody is qualified or eliminated before any match is played', () => {
+    store.resetAllMatchScores();
+    assert.deepEqual(qualifiedIds(), []);
+    const all = Object.values(store.calculateStandings() as Record<string, any[]>).flat();
+    assert.ok(all.every((r) => !r.eliminated));
+  });
+
+  it('a team is eliminated once it can no longer finish in the top two', () => {
+    store.resetAllMatchScores();
+    const [a1, a2, a3, a4] = groups[0];
+    play(a1, a4, 6, 0); play(a2, a4, 6, 0);
+    assert.equal(row(a4).eliminated, false, 'a4 can still draw level on points');
+    play(a3, a4, 6, 0);
+    assert.equal(row(a4).eliminated, true, 'three teams already have more than a4 can reach');
+    assert.equal(row(a3).eliminated, false, 'a3 still has two matches to play');
+  });
+
+  it('a group leader qualifies as soon as no rival can still catch them', () => {
+    store.resetAllMatchScores();
+    const [a1, a2, a3, a4] = groups[0];
+    play(a1, a2, 6, 0); play(a1, a3, 6, 0);
+    assert.equal(row(a1).qualified, false, 'a4 can still beat a1 and catch up on points');
+    play(a1, a4, 6, 0);
+    assert.equal(row(a1).qualified, true, 'three wins: nobody else can reach 9 points');
+    play(a2, a3, 6, 0);
+    assert.equal(row(a2).qualified, false, 'runner-up places wait for the whole group stage');
+  });
+
+  it('a group winner level on points waits for the group to finish', () => {
+    store.resetAllMatchScores();
+    const [a1, a2, a3, a4] = groups[0];
+    play(a1, a2, 6, 5); play(a1, a3, 6, 0); play(a4, a1, 6, 5);
+    play(a2, a3, 6, 5); play(a2, a4, 6, 5);
+    assert.equal(row(a1).qualified, false, 'a2 is level on 6 points and the group is not over');
+    play(a3, a4, 6, 5);
+    assert.equal(row(a1).qualified, true, 'group finished: game difference decides');
+    assert.ok(row(a3).eliminated && row(a4).eliminated, '3rd and 4th are out once the group is over');
+    assert.equal(row(a2).eliminated, false, 'the runner-up waits for the other groups');
   });
 });
 
@@ -217,10 +306,9 @@ describe('quarter-final draw by lot', () => {
   const eight = () => {
     store.resetAllMatchScores();
     for (const g of groups) clearGroup(g);
-    return Object.values(store.calculateStandings() as Record<string, any[]>)
-      .flat()
-      .filter((r) => r.qualified)
-      .map((r) => r.teamId as string);
+    // Every runner-up finishes on the same record; the toss picks the best 3.
+    tossOrder(groups.map((g) => g[1]));
+    return qualifiedIds();
   };
 
   it('rejects duplicates, unknown teams and wrong sizes', () => {

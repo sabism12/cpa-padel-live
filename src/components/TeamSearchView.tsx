@@ -172,7 +172,12 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
             </div>
             {row?.qualified && (
               <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-black uppercase tracking-wider bg-[#0A0A0F] text-[#CCFF00]">
-                In a qualifying place
+                Qualified
+              </span>
+            )}
+            {row?.eliminated && (
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-black uppercase tracking-wider bg-slate-200 text-slate-600">
+                Eliminated
               </span>
             )}
           </div>
@@ -202,7 +207,12 @@ export const TeamSearchView: React.FC<TeamSearchViewProps> = ({
 
         {!withName && row?.qualified && (
           <div className="text-[10px] font-mono font-black uppercase tracking-widest text-blue-800/80">
-            ● Currently in a qualifying place
+            ● Qualified for the quarter-finals
+          </div>
+        )}
+        {!withName && row?.eliminated && (
+          <div className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-500">
+            ● Eliminated
           </div>
         )}
 

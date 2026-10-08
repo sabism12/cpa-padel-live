@@ -13,6 +13,8 @@ const NAME_FIX = {
   'Hamood / Hosam': 'Hamood / Hossam',
   'Ansaf CK / Faham': 'Ansaf / Faham',
   'Asim / Abhi': 'Asim / Abhijit',
+  // Player change: Abdu replaced Aflah as Ameen's partner.
+  'Ameen / Aflah': 'Ameen / Abdu',
 };
 const norm = (n) => NAME_FIX[n] || n;
 

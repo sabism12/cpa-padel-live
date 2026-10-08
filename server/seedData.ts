@@ -59,7 +59,7 @@ export const INITIAL_TEAMS: Team[] = [
 
   // Group D
   { id: 'team-d1', name: 'Mohammed Jalil / Abdullah Mahmoud', player1: 'Mohammed Jalil', player2: 'Abdullah Mahmoud', groupId: 'group-d' },
-  { id: 'team-d2', name: 'Ameen / Aflah', player1: 'Ameen', player2: 'Aflah', groupId: 'group-d' },
+  { id: 'team-d2', name: 'Ameen / Abdu', player1: 'Ameen', player2: 'Abdu', groupId: 'group-d' },
   { id: 'team-d3', name: 'Asim / Abhijit', player1: 'Asim', player2: 'Abhijit', groupId: 'group-d' },
   { id: 'team-d4', name: 'Suhaim / Zubair', player1: 'Suhaim', player2: 'Zubair', groupId: 'group-d' },
 

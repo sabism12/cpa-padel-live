@@ -485,6 +485,31 @@ async function startServer() {
   // Update Live In-Progress Score or Status (and optional Court reassignment)
   app.post('/api/scorekeeper/set-live', requireScorekeeper, (req: Request, res: Response) => {
     const { matchId, team1Score, team2Score, status, padelState, scoreSummary, courtId } = req.body;
+    const user = (req as any).user;
+
+    // A scorekeeper may only bring an unfinished match to their court and open
+    // it for play. Scores arrive only as score events (/api/sync/events), and
+    // finished matches are corrected by an admin, so nothing else is accepted.
+    if (user.role !== 'admin') {
+      const match = tournamentStore.getMatches().find((m) => m.id === matchId);
+      if (!match) {
+        res.status(404).json({ error: 'Match not found.' });
+        return;
+      }
+      if (match.status === 'completed' || match.status === 'cancelled') {
+        res.status(403).json({ error: 'Finished matches can only be changed by an administrator.' });
+        return;
+      }
+      if (status !== undefined && status !== 'ready' && status !== 'live') {
+        res.status(403).json({ error: 'Scorekeepers can only mark a match ready or live.' });
+        return;
+      }
+      const scorekeeperUpdates: Partial<Match> = {};
+      if (status) scorekeeperUpdates.status = status;
+      if (courtId !== undefined) scorekeeperUpdates.courtId = courtId;
+      res.json({ success: true, match: tournamentStore.updateMatch(matchId, scorekeeperUpdates) });
+      return;
+    }
 
     const updates: Partial<Match> = {};
     if (status) updates.status = status;
@@ -511,13 +536,6 @@ async function startServer() {
     res.json({ success: true, match: updated });
   });
 
-  // Reset the score of every match back to 0-0 / scheduled. The store bump
-  // broadcasts over SSE so the public spectator screens refresh immediately.
-  app.post('/api/scorekeeper/reset-all-scores', requireScorekeeper, (_req: Request, res: Response) => {
-    const { matchesReset, knockoutReset } = tournamentStore.resetAllMatchScores();
-    res.json({ success: true, matchesReset, knockoutReset });
-  });
-
   // ----------------------------------------------------
   // ADMIN DASHBOARD ENDPOINTS (Protected: Admin Only)
   // ----------------------------------------------------
@@ -532,6 +550,14 @@ async function startServer() {
       res.status(404).json({ error: 'Not available on the local gateway.' });
     });
   }
+
+  // Reset the score of every match back to 0-0 / scheduled. Admin only: it
+  // wipes the whole tournament. The store bump broadcasts over SSE so the
+  // public spectator screens refresh immediately.
+  app.post('/api/admin/reset-all-scores', requireAdmin, (_req: Request, res: Response) => {
+    const { matchesReset, knockoutReset } = tournamentStore.resetAllMatchScores();
+    res.json({ success: true, matchesReset, knockoutReset });
+  });
 
   // Update Match details / score / court
   app.post('/api/admin/match', requireAdmin, (req: Request, res: Response) => {

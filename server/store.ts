@@ -51,8 +51,33 @@ function tossPairKey(teamA: string, teamB: string): string {
  * v5: group stage scores 3 points for a win and 0 for a loss.
  * v6: the destructive "Reset Demo" was removed. Saves still carrying the old
  *     sample roster are rebuilt with the official roster and fixture list.
+ * v7: player change in Group D - "Ameen / Aflah" is now "Ameen / Abdu".
  */
-const FORMAT_VERSION = 6;
+const FORMAT_VERSION = 7;
+
+/**
+ * v7 migration: Aflah was replaced by Abdu as Ameen's partner. Renames the
+ * player in the roster and in the live draw's pair list (which keeps its own
+ * copy of the names). Matches only the exact "Ameen" + "Aflah" pairing, so a
+ * pairing an admin has already edited is left alone. Team ids are unchanged,
+ * so every match, result and standing carries over as it is.
+ */
+function applyPlayerRenameV7(state: any) {
+  const same = (a: unknown, b: string) =>
+    typeof a === 'string' && a.trim().toLowerCase() === b.toLowerCase();
+  const rename = (pair: { player1?: string; player2?: string; name?: string }) => {
+    const isPairing =
+      (same(pair.player1, 'Ameen') && same(pair.player2, 'Aflah')) ||
+      (same(pair.player1, 'Aflah') && same(pair.player2, 'Ameen'));
+    if (!isPairing) return;
+    if (same(pair.player1, 'Aflah')) pair.player1 = 'Abdu';
+    if (same(pair.player2, 'Aflah')) pair.player2 = 'Abdu';
+    if (typeof pair.name === 'string') pair.name = `${pair.player1} / ${pair.player2}`;
+  };
+
+  if (Array.isArray(state.teams)) state.teams.forEach(rename);
+  if (Array.isArray(state.draw?.pairs)) state.draw.pairs.forEach(rename);
+}
 
 /**
  * v6 migration: the admin "Reset Demo" button used to overwrite the tournament
@@ -286,6 +311,7 @@ class TournamentStore {
       if (fromVersion < 3) applyRosterV3(state);
       if (fromVersion < 4) applyQualificationFormatV4(state);
       if (fromVersion < 5) applyPointsForLossV5(state);
+      if (fromVersion < 7) applyPlayerRenameV7(state);
       state.formatVersion = FORMAT_VERSION;
       changed = true;
     }
@@ -829,13 +855,21 @@ class TournamentStore {
     const result: Record<string, StandingsRow[]> = {};
     const tossWinners = this.state.tossWinners || {};
     const byBylaw = (a: StandingsRow, b: StandingsRow) => compareStandingsRows(a, b, tossWinners);
+    const isUnplayed = (m: Match) => m.status !== 'completed' && m.status !== 'cancelled';
     const isGroupComplete = (groupId: string) => {
       const groupMatches = this.state.matches.filter((m) => m.groupId === groupId);
-      return (
-        groupMatches.length > 0 &&
-        groupMatches.every((m) => m.status === 'completed' || m.status === 'cancelled')
-      );
+      return groupMatches.length > 0 && !groupMatches.some(isUnplayed);
     };
+    // Most points one match can still add, for "can anyone catch them?" checks.
+    const maxPointsPerMatch = Math.max(
+      scoring.pointsForWin,
+      scoring.pointsForLoss,
+      scoring.allowDraws ? scoring.pointsForDraw ?? 0 : 0
+    );
+    const wildcardSlots = scoring.wildcardQualifiers || 0;
+    // Group places that can still lead to the quarter-finals: the direct
+    // qualifiers, plus the runner-up spot when runners-up can take a wildcard.
+    const contendingPlaces = scoring.qualifiersPerGroup + (wildcardSlots > 0 ? 1 : 0);
     let allGroupsComplete = true;
 
     this.state.groups.forEach((group) => {
@@ -920,16 +954,14 @@ class TournamentStore {
 
       // Bylaw §4: points -> game difference -> live toss.
       rows.sort(byBylaw);
-
-      // Direct qualification (bylaw §3): the group winner.
       rows.forEach((row, idx) => {
         row.position = idx + 1;
-        row.qualified = row.position <= scoring.qualifiersPerGroup;
       });
 
       // Once the group is finished, a toss decides level teams for 1st place
       // (qualifies) and 2nd place (runner-up comparison). 3rd/4th don't matter.
-      if (isGroupComplete(group.id)) {
+      const groupComplete = isGroupComplete(group.id);
+      if (groupComplete) {
         markTossPending(rows, `${group.name} position`, tossWinners, [
           scoring.qualifiersPerGroup,
           scoring.qualifiersPerGroup + 1,
@@ -937,6 +969,32 @@ class TournamentStore {
       } else {
         allGroupsComplete = false;
       }
+
+      // Direct qualification (bylaw §3): the group winner, marked only once it
+      // is certain - the group is finished with no toss pending, or too few
+      // rivals can still reach this team's points to push it out.
+      const unplayedGroupMatches = this.state.matches.filter(
+        (m) => m.groupId === group.id && isUnplayed(m)
+      );
+      const maxPoints = (row: StandingsRow) =>
+        row.points +
+        unplayedGroupMatches.filter((m) => m.team1Id === row.teamId || m.team2Id === row.teamId).length *
+          maxPointsPerMatch;
+      rows.forEach((row) => {
+        if (row.position > scoring.qualifiersPerGroup) return;
+        const rivals = rows.filter((other) => other !== row && maxPoints(other) >= row.points).length;
+        row.qualified = (groupComplete && !row.tossPending) || rivals < scoring.qualifiersPerGroup;
+      });
+
+      // Eliminated once the team can no longer finish in a contending place:
+      // enough rivals already have more points than it can still reach, or
+      // the group is finished and it ended below those places.
+      rows.forEach((row) => {
+        const outOfReach = rows.filter((other) => other !== row && other.points > maxPoints(row)).length;
+        row.eliminated =
+          outOfReach >= contendingPlaces ||
+          (groupComplete && row.position > contendingPlaces && !row.tossPending);
+      });
 
       result[group.id] = rows;
     });
@@ -948,7 +1006,6 @@ class TournamentStore {
 
     // Bylaw §3: the remaining places go to the best RUNNERS-UP only (the team
     // directly below the qualifying places in each group), never 3rd or 4th.
-    const wildcardSlots = scoring.wildcardQualifiers || 0;
     const runnerUpPosition = scoring.qualifiersPerGroup + 1;
     const runnersUp = this.state.groups
       .map((group) => (result[group.id] || []).find((row) => row.position === runnerUpPosition))
@@ -956,18 +1013,25 @@ class TournamentStore {
       .sort(byBylaw);
     const wildcards = runnersUp.slice(0, wildcardSlots);
 
-    wildcards.forEach((row) => {
-      row.qualified = true;
-    });
-
     if (allGroupsComplete) {
       // Only the last qualifying runner-up place needs a toss; quarter-final
       // pairings are drawn by lot, so seeding order doesn't matter.
       markTossPending(runnersUp, 'Best runners-up', tossWinners, [wildcardSlots]);
+
+      // Runners-up are compared across every group, so a wildcard place is
+      // only certain once the whole group stage is over and no toss is pending.
+      wildcards.forEach((row) => {
+        row.qualified = !row.tossPending;
+      });
+      // Runners-up below the wildcard places miss out (bylaw §3), so a group
+      // can end with only its winner going through.
+      runnersUp.slice(wildcardSlots).forEach((row) => {
+        row.eliminated = !row.tossPending;
+      });
     }
 
     // Listing order for the qualified teams: group winners, then runners-up.
-    [...directQualifiers, ...wildcards].forEach((row, idx) => {
+    [...directQualifiers, ...wildcards.filter((row) => row.qualified)].forEach((row, idx) => {
       row.qualificationRank = idx + 1;
     });
 

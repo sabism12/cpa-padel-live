@@ -11,12 +11,14 @@ import {
   StandingsRow,
 } from '../types';
 import { EnrichedMatch } from '../api';
+import { StaffRole } from '../staffSession';
 import { ArrowLeft, ClipboardEdit, Lock, LogOut, ShieldCheck } from 'lucide-react';
 
 export type StaffView = 'score' | 'admin';
 
 interface StaffPortalProps {
   view: StaffView;
+  /** The signed-in session for this view's role (each panel has its own). */
   session: AuthSession | null;
   courts: Court[];
   matches: EnrichedMatch[];
@@ -27,14 +29,16 @@ interface StaffPortalProps {
   selectedCourtId: string | null;
   onLogin: (session: AuthSession) => void;
   onLogout: () => void;
-  onChangeView: (view: StaffView) => void;
   onExit: () => void;
   onRefreshData: () => void;
 }
 
 /**
- * Dedicated staff entry point (reached only by direct link, e.g. /staff).
- * Nothing here is linked from the public spectator site.
+ * Dedicated staff entry points, reached only by direct link and never linked
+ * from the public spectator site. The two panels are kept fully separate:
+ * /score (or /staff) is the scorekeeper terminal and only accepts the
+ * scorekeeper PIN; /admin is the admin panel and only accepts the admin
+ * password. Neither panel links to the other.
  */
 export const StaffPortal: React.FC<StaffPortalProps> = ({
   view,
@@ -48,7 +52,6 @@ export const StaffPortal: React.FC<StaffPortalProps> = ({
   selectedCourtId,
   onLogin,
   onLogout,
-  onChangeView,
   onExit,
   onRefreshData,
 }) => {
@@ -56,10 +59,15 @@ export const StaffPortal: React.FC<StaffPortalProps> = ({
   // This flag lets us tell a real sign-in apart from the user dismissing the dialog.
   const loggedInRef = useRef(false);
 
+  const role: StaffRole = view === 'admin' ? 'admin' : 'scorekeeper';
+  const isAdmin = role === 'admin';
+  // Defensive: a session for the other role never opens this panel.
+  const panelSession = session?.role === role ? session : null;
+
   // ---------------------------------------------------------------
-  // Unauthenticated: staff sign-in only (no public navigation here)
+  // Unauthenticated: this panel's sign-in only (no public navigation here)
   // ---------------------------------------------------------------
-  if (!session) {
+  if (!panelSession) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center px-4">
         <div className="text-center mb-6">
@@ -68,16 +76,16 @@ export const StaffPortal: React.FC<StaffPortalProps> = ({
             Restricted Area
           </div>
           <h1 className="mt-4 text-2xl sm:text-3xl font-display font-bold italic text-white">
-            CPA PADEL <span className="text-[#CCFF00]">STAFF</span>
+            CPA PADEL <span className="text-[#CCFF00]">{isAdmin ? 'ADMIN' : 'SCOREKEEPER'}</span>
           </h1>
           <p className="mt-1 text-xs font-mono text-slate-500">
-            Scorekeeper &amp; tournament administration access
+            {isAdmin ? 'Tournament administration access' : 'Scorekeeper terminal access'}
           </p>
         </div>
 
         <AuthModal
           isOpen
-          defaultRole={view === 'admin' ? 'admin' : 'scorekeeper'}
+          role={role}
           onSuccess={(newSession) => {
             loggedInRef.current = true;
             onLogin(newSession);
@@ -93,72 +101,54 @@ export const StaffPortal: React.FC<StaffPortalProps> = ({
   }
 
   // ---------------------------------------------------------------
-  // Authenticated staff terminal
+  // Authenticated staff panel (scorekeeper OR admin, never both)
   // ---------------------------------------------------------------
-  const isAdmin = session.role === 'admin';
-
   return (
-    <div className="min-h-screen flex flex-col bg-[#2E6BFF] text-slate-950">
-      {/* Staff-only control bar */}
-      <header className="bg-slate-950 text-slate-100 border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#CCFF00] text-slate-950 font-bold flex items-center justify-center font-display italic text-lg shadow-md">
-              CPA
-            </div>
-            <div>
-              <div className="text-sm font-display font-bold text-white leading-none">
-                Staff Access Portal
+    // The scorekeeper panel sits on the site's own page wash (the body
+    // gradient), like the public pages; the admin panel keeps its blue page.
+    <div className={`min-h-screen flex flex-col text-slate-950 ${isAdmin ? 'bg-[#2E6BFF]' : 'bg-transparent'}`}>
+      {/* Staff control bar — the public site's floating white bar, one row on phones */}
+      <header className="px-3 sm:px-6 lg:px-8 pt-3 sm:pt-4">
+        <div className="max-w-7xl mx-auto bg-white rounded-[1.6rem] sm:rounded-[2rem] shadow-xl border border-blue-400/40 pl-3 pr-2 sm:px-5 py-2 sm:py-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+            <img
+              src="/cpa%20logo%20final.svg"
+              alt="CPA Padel"
+              className="h-8 sm:h-10 w-auto shrink-0 select-none"
+            />
+            <span className="h-7 w-px bg-slate-200 shrink-0" aria-hidden="true" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 font-display font-semibold uppercase tracking-wide text-xl sm:text-2xl leading-none text-[#0A0A0F]">
+                {isAdmin ? (
+                  <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+                ) : (
+                  <ClipboardEdit className="w-4 h-4 text-blue-600 shrink-0" />
+                )}
+                <span className="truncate">{isAdmin ? 'Admin Panel' : 'Scorekeeper'}</span>
               </div>
-              <div className="text-[11px] font-mono text-[#CCFF00] mt-0.5">
-                {session.name} · <span className="capitalize">{session.role}</span>
+              <div className="text-[11px] font-mono font-bold text-slate-500 truncate mt-1">
+                Signed in as {panelSession.name}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Terminal switcher */}
-            <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-0.5">
-              <button
-                onClick={() => onChangeView('score')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                  view === 'score'
-                    ? 'bg-lime-400 text-slate-950'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <ClipboardEdit className="w-3.5 h-3.5" />
-                <span>Scorekeeper</span>
-              </button>
-              {isAdmin && (
-                <button
-                  onClick={() => onChangeView('admin')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                    view === 'admin'
-                      ? 'bg-blue-500 text-white'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Admin</span>
-                </button>
-              )}
-            </div>
-
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={onExit}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer"
+              aria-label="Back to the public site"
+              className="h-10 min-w-10 px-2.5 sm:px-4 rounded-full border border-slate-900/20 bg-white text-[#0A0A0F] hover:bg-[#0A0A0F] hover:text-white text-[11px] font-mono font-bold uppercase tracking-widest inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Public Site</span>
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Public site</span>
             </button>
 
             <button
               onClick={onLogout}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-300 hover:text-white hover:bg-rose-500/20 bg-slate-900 border border-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer"
+              aria-label="Sign out"
+              className="h-10 min-w-10 px-2.5 sm:px-4 rounded-full border border-rose-300 bg-white text-rose-600 hover:bg-rose-600 hover:text-white text-[11px] font-mono font-bold uppercase tracking-widest inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out</span>
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Sign out</span>
             </button>
           </div>
         </div>
@@ -166,9 +156,9 @@ export const StaffPortal: React.FC<StaffPortalProps> = ({
 
       {/* Terminal content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
-        {view === 'admin' && isAdmin ? (
+        {isAdmin ? (
           <AdminView
-            session={session}
+            session={panelSession}
             onOpenAuth={onLogout}
             teams={teams}
             groups={groups}
@@ -182,7 +172,7 @@ export const StaffPortal: React.FC<StaffPortalProps> = ({
           <ScorekeeperView
             courts={courts}
             matches={matches}
-            session={session}
+            session={panelSession}
             onOpenAuth={onLogout}
             onSessionUpdate={onLogin}
             selectedCourtId={selectedCourtId}

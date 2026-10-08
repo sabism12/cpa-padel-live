@@ -103,7 +103,10 @@ export interface StandingsRow {
   gamesWon: number;
   gamesLost: number;
   scoreDiff: number;
+  /** Certain of a quarter-final place (not just in a qualifying place now). */
   qualified: boolean;
+  /** Certain to miss the quarter-finals. */
+  eliminated?: boolean;
   qualificationRank?: number;
   /**
    * Set when this team is level on points and game difference with another

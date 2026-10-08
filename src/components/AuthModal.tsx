@@ -2,21 +2,22 @@ import React, { useState } from 'react';
 import { X, Lock, ShieldCheck, ClipboardEdit, AlertCircle, KeyRound } from 'lucide-react';
 import { login } from '../api';
 import { AuthSession } from '../types';
+import { StaffRole, saveStaffSession } from '../staffSession';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (session: AuthSession) => void;
-  defaultRole?: 'scorekeeper' | 'admin';
+  /** The only role this sign-in accepts; each panel has its own sign-in. */
+  role: StaffRole;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  defaultRole = 'scorekeeper',
+  role,
 }) => {
-  const [role, setRole] = useState<'scorekeeper' | 'admin'>(defaultRole);
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -31,13 +32,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     try {
       const res = await login(role, password, name.trim() || undefined);
+      if (res.role !== role) throw new Error('Authentication failed. Please verify credentials.');
       const session: AuthSession = {
         token: res.token,
         role: res.role,
         name: res.name,
         expiresAt: Date.now() + 48 * 60 * 60 * 1000,
       };
-      localStorage.setItem('cpa_auth_session', JSON.stringify(session));
+      saveStaffSession(session);
       onSuccess(session);
       onClose();
     } catch (err: any) {
@@ -63,7 +65,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-bold text-white font-display">Staff Authentication</h2>
-              <p className="text-xs text-slate-400">Scorekeeper terminal &amp; tournament admin</p>
+              <p className="text-xs text-slate-400">
+                {role === 'scorekeeper' ? 'Scorekeeper terminal' : 'Tournament administration'}
+              </p>
             </div>
           </div>
           <button
@@ -75,40 +79,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
         </div>
 
-        {/* Role toggle tabs */}
-        <div className="grid grid-cols-2 gap-2 mt-5 p-1 bg-slate-950 rounded-xl border border-slate-800">
-          <button
-            type="button"
-            id="role-tab-scorekeeper"
-            onClick={() => {
-              setRole('scorekeeper');
-              setError(null);
-            }}
-            className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
-              role === 'scorekeeper'
-                ? 'bg-lime-400 text-slate-950 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
+        {/* Role badge — fixed by the panel this sign-in belongs to */}
+        <div
+          id={`role-badge-${role}`}
+          className={`mt-5 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold ${
+            role === 'scorekeeper' ? 'bg-lime-400 text-slate-950' : 'bg-blue-500 text-white'
+          }`}
+        >
+          {role === 'scorekeeper' ? (
             <ClipboardEdit className="w-4 h-4" />
-            <span>Scorekeeper</span>
-          </button>
-          <button
-            type="button"
-            id="role-tab-admin"
-            onClick={() => {
-              setRole('admin');
-              setError(null);
-            }}
-            className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
-              role === 'admin'
-                ? 'bg-blue-500 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
+          ) : (
             <ShieldCheck className="w-4 h-4" />
-            <span>Admin</span>
-          </button>
+          )}
+          <span>{role === 'scorekeeper' ? 'Scorekeeper' : 'Admin'}</span>
         </div>
 
         {/* Form */}

@@ -185,7 +185,7 @@ export async function setMatchLiveScore(
  * SSE, so their boards update automatically. Game times/courts are untouched.
  */
 export async function resetAllScores(token: string) {
-  const res = await fetch('/api/scorekeeper/reset-all-scores', {
+  const res = await fetch('/api/admin/reset-all-scores', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   });

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AuthModal } from '../components/AuthModal';
 import { AuthSession } from '../types';
 import { checkAuth } from '../api';
+import { loadStaffSession, clearStaffSession } from '../staffSession';
 import { useDrawState } from './useDrawState';
 import { Wheel, WheelHandle } from './Wheel';
 import { GroupBoard } from './GroupBoard';
@@ -80,19 +81,8 @@ const inputStyle: React.CSSProperties = {
 export const DrawAdmin: React.FC = () => {
   const { state, revealedCount, animation, error, refresh } = useDrawState();
 
-  // ---- Admin session (reuses the existing staff authentication) -----------
-  const [session, setSession] = useState<AuthSession | null>(() => {
-    try {
-      const stored = localStorage.getItem('cpa_auth_session');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed?.token && parsed.role === 'admin') return parsed;
-      }
-    } catch {
-      // ignore
-    }
-    return null;
-  });
+  // ---- Admin session (shared with the /admin panel, never the scorekeeper's) --
+  const [session, setSession] = useState<AuthSession | null>(() => loadStaffSession('admin'));
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
@@ -103,7 +93,7 @@ export const DrawAdmin: React.FC = () => {
     checkAuth(session.token)
       .then((verified) => {
         if (!verified?.authenticated || verified.role !== 'admin') {
-          localStorage.removeItem('cpa_auth_session');
+          clearStaffSession('admin');
           setSession(null);
         }
       })
@@ -113,7 +103,7 @@ export const DrawAdmin: React.FC = () => {
   }, []);
 
   const handleSignOut = () => {
-    localStorage.removeItem('cpa_auth_session');
+    clearStaffSession('admin');
     setSession(null);
   };
 
@@ -351,11 +341,8 @@ export const DrawAdmin: React.FC = () => {
         </div>
         <AuthModal
           isOpen
-          defaultRole="admin"
-          onSuccess={(newSession) => {
-            if (newSession.role === 'admin') setSession(newSession);
-            else setMessage({ type: 'err', text: 'Please sign in as Administrator.' });
-          }}
+          role="admin"
+          onSuccess={(newSession) => setSession(newSession)}
           onClose={() => undefined}
         />
         <a href="/draw" className="mt-6 text-xs font-bold text-white/50 hover:text-white">

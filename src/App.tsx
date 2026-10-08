@@ -13,6 +13,7 @@ import {
 } from './api';
 import { DEFAULT_SETTINGS, INITIAL_GROUPS, INITIAL_COURTS, INITIAL_TEAMS } from '../server/seedData';
 import { Group, Team, Court, TournamentSettings, StandingsRow, AuthSession } from './types';
+import { StaffRole, loadStaffSession, clearStaffSession } from './staffSession';
 import { Navbar, NavTab } from './components/Navbar';
 import { LiveResultsView } from './components/LiveResultsView';
 import { LiveCourtsView } from './components/LiveCourtsView';
@@ -60,22 +61,13 @@ export default function App() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
 
-  // Authentication session - spectators are always anonymous.
-  // Staff privileges are only granted through the dedicated staff portal.
-  const [session, setSession] = useState<AuthSession | null>(() => {
-    try {
-      const stored = localStorage.getItem('cpa_auth_session');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed && parsed.token && (parsed.role === 'scorekeeper' || parsed.role === 'admin')) {
-          return parsed;
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return null;
-  });
+  // Staff sessions - spectators are always anonymous. Staff privileges are only
+  // granted through the dedicated staff portal, and the scorekeeper and admin
+  // panels each keep their own sign-in (see staffSession.ts).
+  const [sessions, setSessions] = useState<Record<StaffRole, AuthSession | null>>(() => ({
+    scorekeeper: loadStaffSession('scorekeeper'),
+    admin: loadStaffSession('admin'),
+  }));
 
   // Load cached tournament state to eliminate cold-start empty screens
   const cachedStateRef = useRef<any>(getStoredTournamentCache());
@@ -211,36 +203,26 @@ export default function App() {
     loadAllData(true);
   }, [loadAllData]);
 
-  // Synchronize and validate session with server. An invalid/expired staff
-  // token is dropped rather than silently upgraded.
+  // Validate each stored staff session with the server. An invalid/expired
+  // token, or one whose role doesn't match its panel, is dropped.
+  const scorekeeperToken = sessions.scorekeeper?.token;
+  const adminToken = sessions.admin?.token;
   useEffect(() => {
-    if (!session?.token) return;
-
-    checkAuth(session.token)
-      .then((verified) => {
-        if (
-          !verified ||
-          !verified.authenticated ||
-          (verified.role !== 'scorekeeper' && verified.role !== 'admin')
-        ) {
-          localStorage.removeItem('cpa_auth_session');
-          setSession(null);
-        } else {
-          setSession((prev) => {
-            if (!prev) return null;
-            return {
-              token: verified.token || prev.token,
-              role: verified.role,
-              name: verified.name || prev.name,
-              expiresAt: prev.expiresAt || Date.now() + 48 * 60 * 60 * 1000,
-            };
-          });
-        }
-      })
-      .catch(() => {
-        // ignore transient offline fetch errors
-      });
-  }, [session?.token]);
+    (['scorekeeper', 'admin'] as const).forEach((role) => {
+      const token = role === 'admin' ? adminToken : scorekeeperToken;
+      if (!token) return;
+      checkAuth(token)
+        .then((verified) => {
+          if (!verified?.authenticated || verified.role !== role) {
+            clearStaffSession(role);
+            setSessions((prev) => ({ ...prev, [role]: null }));
+          }
+        })
+        .catch(() => {
+          // ignore transient offline fetch errors
+        });
+    });
+  }, [scorekeeperToken, adminToken]);
 
   // Real-time updates. The server pushes a message over SSE whenever anything
   // changes; we then refetch once. Polling is only a fallback while the live
@@ -331,9 +313,14 @@ export default function App() {
     };
   }, [loadAllData]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('cpa_auth_session');
-    setSession(null);
+  // AuthModal has already stored the new session under its role.
+  const handleLogin = (newSession: AuthSession) => {
+    setSessions((prev) => ({ ...prev, [newSession.role]: newSession }));
+  };
+
+  const handleLogout = (role: StaffRole) => {
+    clearStaffSession(role);
+    setSessions((prev) => ({ ...prev, [role]: null }));
   };
 
   const handleSelectTeam = (teamId: string) => {
@@ -350,10 +337,11 @@ export default function App() {
   // Staff portal (scorekeeper / admin) - separate, unlinked entry point
   // -----------------------------------------------------------------
   if (isStaffPath(window.location.pathname)) {
+    const staffRole: StaffRole = activeTab === 'admin' ? 'admin' : 'scorekeeper';
     return (
       <StaffPortal
-        view={activeTab === 'admin' ? 'admin' : 'score'}
-        session={session}
+        view={staffRole === 'admin' ? 'admin' : 'score'}
+        session={sessions[staffRole]}
         courts={courts}
         matches={matches}
         teams={teams}
@@ -361,9 +349,8 @@ export default function App() {
         settings={settings}
         standings={standings}
         selectedCourtId={selectedCourtId}
-        onLogin={(newSession) => setSession(newSession)}
-        onLogout={handleLogout}
-        onChangeView={(view) => setActiveTab(view)}
+        onLogin={handleLogin}
+        onLogout={() => handleLogout(staffRole)}
         onExit={() => setActiveTab('results')}
         onRefreshData={() => loadAllData(false)}
       />
@@ -438,9 +425,9 @@ export default function App() {
                 groups={groups}
                 standings={standings}
                 settings={settings}
-                session={session}
+                session={sessions.scorekeeper}
                 onSelectTeam={handleSelectTeam}
-                onGoToScorekeeper={session ? handleGoToScorekeeper : undefined}
+                onGoToScorekeeper={sessions.scorekeeper ? handleGoToScorekeeper : undefined}
                 onNavigateTab={(tab) => setActiveTab(tab)}
                 onRefreshData={() => loadAllData(false)}
               />

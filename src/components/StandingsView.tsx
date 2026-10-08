@@ -1,6 +1,6 @@
 import React from 'react';
 import { Group, StandingsRow, TournamentSettings } from '../types';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import { pairLabel } from '../utils/teamDisplay';
 import { StickyHero } from './StickyHero';
 
@@ -47,7 +47,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
           {/* 1. Card header — black band with the display heading */}
           <div className="px-5 sm:px-7 py-6 sm:py-7 bg-[#0A0A0F] text-white flex items-center justify-center">
             <h3 className="font-display font-semibold text-white uppercase tracking-wide leading-none text-5xl sm:text-7xl text-center min-w-0">
-              Qualifying Teams
+              Qualified Teams
             </h3>
           </div>
 
@@ -119,7 +119,7 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                         key={row.teamId}
                         onClick={() => onSelectTeam(row.teamId)}
                         className={`hover:bg-blue-50/60 cursor-pointer transition-colors group ${
-                          row.qualified ? 'bg-blue-50/30' : ''
+                          row.qualified ? 'bg-blue-50/30' : row.eliminated ? 'opacity-60' : ''
                         }`}
                       >
                         {/* Pos */}
@@ -146,6 +146,11 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                                 className="ml-1.5 inline-block px-1.5 py-0.5 rounded-md bg-amber-300 text-slate-950 text-[9px] font-black uppercase tracking-wider align-middle"
                               >
                                 Toss
+                              </span>
+                            )}
+                            {row.eliminated && (
+                              <span className="sm:hidden ml-1.5 inline-block px-1.5 py-0.5 rounded-md bg-slate-200 text-slate-600 text-[9px] font-black uppercase tracking-wider align-middle">
+                                Out
                               </span>
                             )}
                           </div>
@@ -176,13 +181,18 @@ export const StandingsView: React.FC<StandingsViewProps> = ({
                           </span>
                         </td>
 
-                        {/* Status — hidden on phones (the black pos badge already marks
-                            qualifiers), full pill from sm up. */}
+                        {/* Status — hidden on phones (the black pos badge marks
+                            qualifiers, the "Out" tag eliminated teams), full pill from sm up. */}
                         <td className="py-3 px-2.5 text-center hidden sm:table-cell">
                           {row.qualified ? (
                             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-100 text-blue-900 border border-blue-300 shadow-sm">
                               <CheckCircle2 className="w-3 h-3 text-blue-700" />
                               QUALIFIED
+                            </span>
+                          ) : row.eliminated ? (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-300">
+                              <XCircle className="w-3 h-3" />
+                              ELIMINATED
                             </span>
                           ) : (
                             <span className="text-[11px] text-slate-500 font-mono font-medium">In Contention</span>

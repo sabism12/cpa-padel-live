@@ -25,9 +25,12 @@ export const SyncStatusBar: React.FC<SyncStatusBarProps> = ({
 
   if (status === 'auth') {
     return (
-      <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-rose-200">
-          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+      <div
+        role="alert"
+        className="rounded-2xl bg-white border-2 border-rose-400 px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-md"
+      >
+        <div className="flex items-start gap-2.5 text-sm font-semibold text-rose-800 min-w-0">
+          <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
           <span>
             Sign-in expired{pending > 0 ? ` — ${waiting}` : ''}. Sign in again and they will send
             automatically.
@@ -35,7 +38,7 @@ export const SyncStatusBar: React.FC<SyncStatusBarProps> = ({
         </div>
         <button
           onClick={onSignIn}
-          className="px-3 py-1.5 rounded-xl bg-lime-400 hover:bg-lime-300 text-slate-950 text-xs font-black flex items-center gap-1.5 cursor-pointer"
+          className="min-h-10 px-4 rounded-full bg-[#0A0A0F] hover:bg-slate-800 text-[#CCFF00] text-[11px] font-mono font-bold uppercase tracking-widest flex items-center gap-1.5 cursor-pointer"
         >
           <LogIn className="w-3.5 h-3.5" />
           Sign in
@@ -46,16 +49,19 @@ export const SyncStatusBar: React.FC<SyncStatusBarProps> = ({
 
   if (status === 'retrying') {
     return (
-      <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-amber-200 min-w-0">
-          <WifiOff className="w-4 h-4 text-amber-400 shrink-0" />
-          <span className="truncate">
+      <div
+        role="status"
+        className="rounded-2xl bg-white border-2 border-amber-400 px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-md"
+      >
+        <div className="flex items-start gap-2.5 text-sm font-semibold text-amber-900 min-w-0">
+          <WifiOff className="w-5 h-5 text-amber-600 shrink-0" />
+          <span>
             Not sent yet — {waiting}. {lastError || 'Retrying…'}
           </span>
         </div>
         <button
           onClick={onRetry}
-          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+          className="min-h-10 px-4 rounded-full border border-slate-900/30 bg-white text-[#0A0A0F] hover:bg-slate-900 hover:text-white text-[11px] font-mono font-bold uppercase tracking-widest flex items-center gap-1.5 cursor-pointer transition-colors"
         >
           <RefreshCw className="w-3.5 h-3.5" />
           Retry now
