@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { finalScoreError } from '../src/scoring/finalScore';
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cpa-bylaws-'));
 fs.copyFileSync(
@@ -355,6 +356,148 @@ describe('quarter-final draw by lot', () => {
     const qf1 = store.state.matches.find((x: any) => x.id === 'match-ko-qf1');
     assert.equal(qf1.walkover, 'team1');
     assert.equal(qf1.status, 'completed');
+    store.resetAllMatchScores();
+  });
+});
+
+describe('quick results — first to 6 games, no tiebreak', () => {
+  it('accepts only 6-0 ... 6-5, either way round', () => {
+    for (let loser = 0; loser <= 5; loser++) {
+      assert.equal(finalScoreError(6, loser), null, `6-${loser}`);
+      assert.equal(finalScoreError(loser, 6), null, `${loser}-6`);
+      assert.equal(finalScoreError('6', String(loser)), null, 'typed text works too');
+    }
+    const invalid: [unknown, unknown][] = [
+      [6, 6], [7, 5], [5, 7], [7, 6], [4, 3], [0, 0], [5, 5],
+      ['', 4], [6, ''], [null, 6], [6, undefined], ['  ', 2],
+      [-1, 6], [6, 2.5], ['x', 6], [10, 6],
+    ];
+    for (const [a, b] of invalid) {
+      assert.ok(finalScoreError(a, b), `${String(a)}-${String(b)} must be rejected`);
+    }
+  });
+
+  it('the server result path refuses an impossible final and leaves the match unplayed', () => {
+    store.resetAllMatchScores();
+    const [a1, a2] = groups[0];
+    const m = matchOf(a1, a2);
+    for (const [t1, t2] of [[6, 6], [7, 5], [4, 3]]) {
+      const out = store.submitScore({ matchId: m.id, team1Score: t1, team2Score: t2, isAdminOverride: true });
+      assert.equal(out.success, false, `${t1}-${t2} is refused`);
+      assert.ok(out.error);
+    }
+    assert.equal(m.status, 'scheduled');
+    assert.equal(m.team1Score, null);
+    assert.equal(store.submitScore({ matchId: m.id, team1Score: 6, team2Score: 5 }).success, true);
+    assert.equal(m.status, 'completed');
+  });
+
+  it('a correction replaces the old games, padelState and walkover', () => {
+    store.resetAllMatchScores();
+    const [a1, a2] = groups[0];
+    const m = matchOf(a1, a2);
+    const a1Side = m.team1Id === a1 ? 'team1' : 'team2';
+    store.setWalkover(m.id, a1Side); // a1 wins 6-0 by W/O
+    assert.equal(row(a1).wins, 1);
+
+    // Paper sheet says a2 actually won 6-4: the admin corrects it.
+    const [s1, s2] = a1Side === 'team1' ? [4, 6] : [6, 4];
+    assert.equal(store.submitScore({ matchId: m.id, team1Score: s1, team2Score: s2, isAdminOverride: true }).success, true);
+    assert.equal(m.walkover, undefined, 'no longer a walkover');
+    assert.equal(m.padelState.team1Games, s1, 'standings read the new games');
+    assert.equal(m.padelState.winnerTeamId, a1Side === 'team1' ? 'team2' : 'team1');
+    assert.equal(row(a2).wins, 1);
+    assert.equal(row(a2).scoreDiff, 2);
+    assert.equal(row(a1).wins, 0);
+
+    // A completed match can't be overwritten without the admin override.
+    assert.equal(store.submitScore({ matchId: m.id, team1Score: 6, team2Score: 0 }).success, false);
+  });
+
+  it('a match being scored live on a phone can be finished from quick results', () => {
+    store.resetAllMatchScores();
+    const [a1, a2] = groups[0];
+    const m = matchOf(a1, a2);
+    let n = 0;
+    const phone = (type: string) =>
+      store.applyScoreEvents([
+        { eventId: `phone-${++n}`, matchId: m.id, type, clientTs: new Date().toISOString() },
+      ]).results[0];
+
+    // The phone has scored one game for each side so far: live at 1-1.
+    for (let i = 0; i < 4; i++) phone('POINT_TEAM_1');
+    for (let i = 0; i < 4; i++) phone('POINT_TEAM_2');
+    assert.equal(m.status, 'live');
+    assert.equal(m.padelState.team1Games, 1);
+
+    assert.equal(store.submitScore({ matchId: m.id, team1Score: 6, team2Score: 4, isAdminOverride: true }).success, true);
+    assert.equal(m.status, 'completed');
+    assert.deepEqual([m.padelState.team1Games, m.padelState.team2Games], [6, 4], 'standings use the typed final, not 1-1');
+    assert.equal(m.padelState.isMatchOver, true);
+
+    const late = phone('POINT_TEAM_2');
+    assert.equal(late.accepted, false, "the phone's next point is refused");
+    assert.deepEqual([m.team1Score, m.team2Score], [6, 4]);
+  });
+});
+
+describe('knockout advancement from typed results', () => {
+  const ko = (id: string) => store.state.matches.find((x: any) => x.id === `match-ko-${id}`);
+  let q: string[];
+
+  /** Group stage finished and a fixed quarter-final draw: QFn is q[2n-2] v q[2n-1]. */
+  const drawQuarterFinals = () => {
+    store.resetAllMatchScores();
+    for (const g of groups) clearGroup(g);
+    tossOrder(groups.map((g) => g[1]));
+    q = qualifiedIds();
+    assert.equal(q.length, 8);
+    assert.equal(
+      store.setQuarterFinalDraw([[q[0], q[1]], [q[2], q[3]], [q[4], q[5]], [q[6], q[7]]]).error,
+      undefined
+    );
+  };
+
+  it('quick results (submitScore): winners reach the final, semi-final losers the 3rd-place match', () => {
+    drawQuarterFinals();
+    const enter = (id: string, t1: number, t2: number) =>
+      assert.equal(store.submitScore({ matchId: ko(id).id, team1Score: t1, team2Score: t2, isAdminOverride: true }).success, true);
+
+    enter('qf1', 6, 4); enter('qf2', 5, 6); enter('qf3', 6, 0); enter('qf4', 3, 6);
+    assert.deepEqual([ko('sf1').team1Id, ko('sf1').team2Id], [q[0], q[3]]);
+    assert.deepEqual([ko('sf2').team1Id, ko('sf2').team2Id], [q[4], q[7]]);
+
+    enter('sf1', 6, 2); enter('sf2', 4, 6);
+    assert.deepEqual([ko('final').team1Id, ko('final').team2Id], [q[0], q[7]]);
+    assert.deepEqual([ko('3rd').team1Id, ko('3rd').team2Id], [q[3], q[4]]);
+
+    // A correction that flips SF1 swaps the finalist and the 3rd-place team.
+    enter('sf1', 5, 6);
+    assert.equal(ko('final').team1Id, q[3]);
+    assert.equal(ko('3rd').team1Id, q[0]);
+  });
+
+  it('admin match edit (updateMatch) moves the knockout winner on as well', () => {
+    drawQuarterFinals();
+    store.updateMatch(ko('qf1').id, { status: 'completed', team1Score: 6, team2Score: 3, walkover: undefined });
+    store.updateMatch(ko('qf2').id, { status: 'completed', team1Score: 2, team2Score: 6, walkover: undefined });
+    assert.deepEqual([ko('sf1').team1Id, ko('sf1').team2Id], [q[0], q[3]]);
+
+    store.updateMatch(ko('sf1').id, { status: 'completed', team1Score: 4, team2Score: 6 });
+    assert.equal(ko('final').team1Id, q[3], 'SF1 winner is in the final');
+    assert.equal(ko('3rd').team1Id, q[0], 'SF1 loser plays for 3rd place');
+
+    // Correcting the edit moves the right team instead.
+    store.updateMatch(ko('qf2').id, { team1Score: 6, team2Score: 1 });
+    assert.equal(ko('sf1').team2Id, q[2]);
+  });
+
+  it('admin match edit does not move anyone for an unfinished or level knockout score', () => {
+    drawQuarterFinals();
+    store.updateMatch(ko('qf3').id, { status: 'live', team1Score: 6, team2Score: 2 });
+    assert.equal(ko('sf2').team1Id, '', 'live match: nobody moves yet');
+    store.updateMatch(ko('qf3').id, { status: 'completed', team1Score: 6, team2Score: 6 });
+    assert.equal(ko('sf2').team1Id, '', 'no winner in a level score');
     store.resetAllMatchScores();
   });
 });

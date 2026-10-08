@@ -104,9 +104,9 @@ export const StaffPortal: React.FC<StaffPortalProps> = ({
   // Authenticated staff panel (scorekeeper OR admin, never both)
   // ---------------------------------------------------------------
   return (
-    // The scorekeeper panel sits on the site's own page wash (the body
-    // gradient), like the public pages; the admin panel keeps its blue page.
-    <div className={`min-h-screen flex flex-col text-slate-950 ${isAdmin ? 'bg-[#2E6BFF]' : 'bg-transparent'}`}>
+    // Both staff panels sit on the site's own page wash (the body gradient),
+    // like the public pages.
+    <div className="min-h-screen flex flex-col text-slate-950 bg-transparent">
       {/* Staff control bar — the public site's floating white bar, one row on phones */}
       <header className="px-3 sm:px-6 lg:px-8 pt-3 sm:pt-4">
         <div className="max-w-7xl mx-auto bg-white rounded-[1.6rem] sm:rounded-[2rem] shadow-xl border border-blue-400/40 pl-3 pr-2 sm:px-5 py-2 sm:py-2.5 flex items-center justify-between gap-3">

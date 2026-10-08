@@ -2,11 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   Users,
-  Grid,
+  LayoutGrid,
   Calendar,
-  Settings,
   Download,
-  Upload,
   QrCode,
   RotateCcw,
   Plus,
@@ -14,27 +12,41 @@ import {
   Edit2,
   CheckCircle2,
   AlertCircle,
-  Clock,
-  Share2,
   Copy,
-  ExternalLink,
-  Flame,
   FileSpreadsheet,
   Coins,
   Shuffle,
+  ClipboardList,
+  X,
 } from 'lucide-react';
 import QRCode from 'qrcode';
-import { Team, Group, Court, Match, TournamentSettings, AuthSession, StandingsRow } from '../types';
+import { Team, Group, Court, TournamentSettings, AuthSession, StandingsRow } from '../types';
 import { pairLabel } from '../utils/teamDisplay';
+import { QuickResultsPanel } from './QuickResultsPanel';
+import {
+  AdminDialog,
+  BandLabel,
+  MatchStatusPill,
+  SectionCard,
+  adminStageLabel,
+  bandButton,
+  bandOutlineButton,
+  dangerButton,
+  fieldInput,
+  fieldLabel,
+  outlineButton,
+  primaryButton,
+  smallDangerButton,
+  smallOutlineButton,
+  smallQuietDangerButton,
+} from './AdminUI';
 import {
   EnrichedMatch,
   adminSaveTeam,
   adminDeleteTeam,
   adminSaveCourts,
-  adminSaveGroups,
   adminUpdateMatch,
   adminExportData,
-  adminImportData,
   resetAllScores,
   adminSetWalkover,
   adminSetTeamWithdrawn,
@@ -55,6 +67,30 @@ interface AdminViewProps {
   onRefreshData: () => void;
 }
 
+type AdminTab = 'quick' | 'matches' | 'tiebreaks' | 'qfdraw' | 'teams' | 'courts' | 'sheets' | 'qr';
+type FixtureFilter = 'all' | 'live' | 'upcoming' | 'completed';
+
+const FIXTURE_FILTERS: { id: FixtureFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'live', label: 'Live' },
+  { id: 'upcoming', label: 'Upcoming' },
+  { id: 'completed', label: 'Finished' },
+];
+
+function matchesFixtureFilter(m: EnrichedMatch, filter: FixtureFilter): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'upcoming') return m.status === 'scheduled' || m.status === 'ready';
+  return m.status === filter;
+}
+
+type BadgeTone = 'count' | 'alert' | 'live';
+interface NavItem {
+  id: AdminTab;
+  label: string;
+  icon: React.ElementType;
+  badge?: { value: number; tone: BadgeTone };
+}
+
 export const AdminView: React.FC<AdminViewProps> = ({
   session,
   onOpenAuth,
@@ -66,9 +102,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
   standings,
   onRefreshData,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<
-    'matches' | 'tiebreaks' | 'qfdraw' | 'teams' | 'courts' | 'sheets' | 'qr'
-  >('matches');
+  // Quick results first: typing in the paper score sheets is the match-day job.
+  const [activeSubTab, setActiveSubTab] = useState<AdminTab>('quick');
+  const [fixtureFilter, setFixtureFilter] = useState<FixtureFilter>('all');
 
   // Quarter-final draw by lot: 4 pairings, QF1..QF4, as team ids ('' = empty).
   const [qfDraw, setQfDraw] = useState<string[][]>([
@@ -145,24 +181,22 @@ export const AdminView: React.FC<AdminViewProps> = ({
   // If not admin, require admin login
   if (!session || session.role !== 'admin') {
     return (
-      <div className="max-w-xl mx-auto py-12 px-4 text-center">
-        <div className="p-8 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl space-y-5">
-          <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-zinc-400 flex items-center justify-center mx-auto">
-            <ShieldCheck className="w-8 h-8" />
+      <div className="max-w-lg mx-auto py-12">
+        <div className="p-8 rounded-3xl bg-white border border-blue-300/80 shadow-xl text-center space-y-5">
+          <div className="w-14 h-14 rounded-2xl bg-[#0A0A0F] text-[#CCFF00] flex items-center justify-center mx-auto">
+            <ShieldCheck className="w-7 h-7" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold font-display text-white">Administrator Access Required</h2>
-            <p className="text-sm text-slate-400 mt-2">
-              Only tournament directors and administrators can modify teams, auto-generate rounds,
-              reschedule courts, and adjust rules.
+            <h2 className="text-4xl font-display font-semibold uppercase tracking-wide leading-none text-[#0A0A0F]">
+              Admin sign-in required
+            </h2>
+            <p className="text-sm text-slate-600 mt-3">
+              Only tournament directors and administrators can change teams, results, courts and
+              the knockout draw.
             </p>
           </div>
-          <button
-            id="btn-admin-login-prompt"
-            onClick={onOpenAuth}
-            className="w-full py-3.5 px-6 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition-all"
-          >
-            Sign In with Administrator Credentials
+          <button id="btn-admin-login-prompt" onClick={onOpenAuth} className={`${primaryButton} w-full min-h-12`}>
+            Sign in as administrator
           </button>
         </div>
       </div>
@@ -320,49 +354,37 @@ export const AdminView: React.FC<AdminViewProps> = ({
   };
 
   /** "Which team did not come?" choices, shared by the quick dialog and the edit window. */
-  const renderAbsentChoices = (match: EnrichedMatch) => (
-    <div className="grid grid-cols-1 gap-2">
-      <button
-        type="button"
-        onClick={() => handleWalkover(match, 'team2')}
-        className="px-3 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-bold text-left"
-      >
-        <span className="text-rose-300">Did not come:</span> {pairLabel(match.team1, 'Pair 1')}
-        <span className="block text-[10px] font-medium text-slate-400 mt-0.5">
-          W/O — {pairLabel(match.team2, 'Pair 2')} wins 6-0
-        </span>
-      </button>
-      <button
-        type="button"
-        onClick={() => handleWalkover(match, 'team1')}
-        className="px-3 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-bold text-left"
-      >
-        <span className="text-rose-300">Did not come:</span> {pairLabel(match.team2, 'Pair 2')}
-        <span className="block text-[10px] font-medium text-slate-400 mt-0.5">
-          W/O — {pairLabel(match.team1, 'Pair 1')} wins 6-0
-        </span>
-      </button>
-      <button
-        type="button"
-        onClick={() => handleWalkover(match, 'both')}
-        className="px-3 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-300 text-xs font-bold text-left"
-      >
-        Neither team came
-        <span className="block text-[10px] font-medium text-slate-400 mt-0.5">
-          Both teams get a loss, no games
-        </span>
-      </button>
-      {match.walkover && (
-        <button
-          type="button"
-          onClick={() => handleWalkover(match, null)}
-          className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-bold text-left"
-        >
-          Clear walkover (back to scheduled)
+  const renderAbsentChoices = (match: EnrichedMatch) => {
+    const choice =
+      'w-full text-left px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 hover:border-rose-300 hover:bg-rose-50 transition-colors cursor-pointer';
+    return (
+      <div className="grid grid-cols-1 gap-2">
+        <button type="button" onClick={() => handleWalkover(match, 'team2')} className={choice}>
+          <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-rose-600">Did not come</span>
+          <span className="block text-sm font-bold text-[#0A0A0F]">{pairLabel(match.team1, 'Pair 1')}</span>
+          <span className="block text-xs text-slate-500 mt-0.5">
+            W/O — {pairLabel(match.team2, 'Pair 2')} wins 6-0
+          </span>
         </button>
-      )}
-    </div>
-  );
+        <button type="button" onClick={() => handleWalkover(match, 'team1')} className={choice}>
+          <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-rose-600">Did not come</span>
+          <span className="block text-sm font-bold text-[#0A0A0F]">{pairLabel(match.team2, 'Pair 2')}</span>
+          <span className="block text-xs text-slate-500 mt-0.5">
+            W/O — {pairLabel(match.team1, 'Pair 1')} wins 6-0
+          </span>
+        </button>
+        <button type="button" onClick={() => handleWalkover(match, 'both')} className={choice}>
+          <span className="block text-sm font-bold text-rose-700">Neither team came</span>
+          <span className="block text-xs text-slate-500 mt-0.5">Both teams get a loss, no games</span>
+        </button>
+        {match.walkover && (
+          <button type="button" onClick={() => handleWalkover(match, null)} className={`${outlineButton} w-full`}>
+            Clear walkover (back to scheduled)
+          </button>
+        )}
+      </div>
+    );
+  };
 
   // Team did not come (bylaw §6): unplayed matches -> walkovers to opponents.
   const handleTeamWithdrawn = async (team: Team, withdrawn: boolean) => {
@@ -558,70 +580,224 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
-  return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Admin Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-blue-500 text-white font-black shadow-lg shadow-blue-500/20">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-display font-bold text-white">
-              ADMIN CONTROL PANEL
-            </h1>
-            <p className="text-xs text-slate-400">
-              Manage teams &bull; Schedule fixtures &bull; Score corrections &bull; Google Sheets
-            </p>
-          </div>
-        </div>
+  /* ------------------------------------------------------------------ */
+  /* Layout data                                                        */
+  /* ------------------------------------------------------------------ */
 
-        {/* Global Action Quick Buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            id="btn-admin-reset-all-scores"
-            onClick={() => {
-              setShowResetAllConfirm(true);
-              setFeedbackMessage(null);
-            }}
-            disabled={resettingAll}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Reset every match score to 0-0 and clear the knockout bracket back to TBD"
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span>Reset All Scores</span>
-          </button>
+  const completedCount = matches.filter((m) => m.status === 'completed').length;
+  const liveCount = matches.filter((m) => m.status === 'live').length;
+  const toEnterCount = matches.filter(
+    (m) => m.status !== 'completed' && m.status !== 'cancelled' && m.team1Id && m.team2Id
+  ).length;
+  const qualifierSlots =
+    (settings?.scoring?.qualifiersPerGroup ?? 1) * (groups.length || 5) + (settings?.scoring?.wildcardQualifiers ?? 3);
+
+  const navGroups: { label: string; items: NavItem[] }[] = [
+    {
+      label: 'Match day',
+      items: [
+        {
+          id: 'quick',
+          label: 'Quick results',
+          icon: ClipboardList,
+          badge: toEnterCount > 0 ? { value: toEnterCount, tone: 'count' } : undefined,
+        },
+        {
+          id: 'matches',
+          label: 'Fixtures & edits',
+          icon: Calendar,
+          badge: liveCount > 0 ? { value: liveCount, tone: 'live' } : undefined,
+        },
+        {
+          id: 'tiebreaks',
+          label: 'Tie-breaks',
+          icon: Coins,
+          badge: tieSets.length > 0 ? { value: tieSets.length, tone: 'alert' } : undefined,
+        },
+        { id: 'qfdraw', label: 'QF draw', icon: Shuffle },
+      ],
+    },
+    {
+      label: 'Setup',
+      items: [
+        { id: 'teams', label: 'Teams', icon: Users, badge: { value: teams.length, tone: 'count' } },
+        { id: 'courts', label: 'Courts', icon: LayoutGrid, badge: { value: courts.length, tone: 'count' } },
+      ],
+    },
+    {
+      label: 'Share',
+      items: [
+        { id: 'sheets', label: 'Export data', icon: FileSpreadsheet },
+        { id: 'qr', label: 'QR poster', icon: QrCode },
+      ],
+    },
+  ];
+
+  const renderBadge = (badge: NavItem['badge'], active: boolean) => {
+    if (!badge) return null;
+    const tone =
+      badge.tone === 'alert'
+        ? 'bg-amber-400 text-[#0A0A0F]'
+        : badge.tone === 'live'
+        ? 'bg-[#CCFF00] text-[#0A0A0F] ring-1 ring-[#0A0A0F]/20'
+        : active
+        ? 'bg-white/15 text-white'
+        : 'bg-slate-100 text-slate-600';
+    return (
+      <span
+        className={`min-w-5 h-5 px-1.5 rounded-full text-[10px] font-mono font-black inline-flex items-center justify-center gap-1 ${tone}`}
+      >
+        {badge.tone === 'live' && <span className="w-1.5 h-1.5 rounded-full bg-[#0A0A0F] animate-pulse" />}
+        {badge.value}
+      </span>
+    );
+  };
+
+  const stats: {
+    label: string;
+    value: number;
+    of?: number;
+    tab: AdminTab;
+    tone?: 'live' | 'alert';
+    onOpen?: () => void;
+  }[] = [
+    { label: 'Results in', value: completedCount, of: matches.length, tab: 'quick' },
+    {
+      label: 'Live now',
+      value: liveCount,
+      tab: 'matches',
+      tone: liveCount > 0 ? 'live' : undefined,
+      onOpen: () => setFixtureFilter('live'),
+    },
+    { label: 'Tosses needed', value: tieSets.length, tab: 'tiebreaks', tone: tieSets.length > 0 ? 'alert' : undefined },
+    { label: 'Qualified', value: qualifiedRows.length, of: qualifierSlots, tab: 'qfdraw' },
+  ];
+
+  /** A pairing line in the fixtures list: winner in ink, loser greyed. */
+  const fixturePair = (m: EnrichedMatch, side: 1 | 2) => {
+    const teamId = side === 1 ? m.team1Id : m.team2Id;
+    const team = side === 1 ? m.team1 : m.team2;
+    const scored = m.status === 'completed' && m.walkover !== 'both' && m.team1Score !== null && m.team2Score !== null;
+    const lost = scored && (side === 1 ? m.team1Score! < m.team2Score! : m.team2Score! < m.team1Score!);
+    return (
+      <span
+        className={`block leading-snug ${
+          !teamId ? 'italic font-medium text-slate-400' : lost ? 'font-semibold text-slate-400' : 'font-bold text-[#0A0A0F]'
+        }`}
+      >
+        {teamId ? pairLabel(team) : 'TBD'}
+      </span>
+    );
+  };
+
+  const fixtureScore = (m: EnrichedMatch) => {
+    if (m.walkover === 'both') return <span className="text-xs font-mono font-bold text-slate-500">W/O</span>;
+    if ((m.status === 'completed' || m.status === 'live') && m.team1Score !== null && m.team2Score !== null) {
+      return (
+        <span className="font-display font-bold text-2xl leading-none text-[#0A0A0F] whitespace-nowrap">
+          {m.team1Score}–{m.team2Score}
+        </span>
+      );
+    }
+    return <span className="text-slate-300">—</span>;
+  };
+
+  const fixtureActions = (m: EnrichedMatch) => (
+    <div className="flex items-center justify-end gap-1.5">
+      {(m.status !== 'completed' || m.walkover) && m.status !== 'cancelled' && (
+        <button
+          type="button"
+          onClick={() => setAbsentMatch(m)}
+          title="A team did not come: record a walkover (W/O)"
+          className={m.walkover ? smallDangerButton : smallQuietDangerButton}
+        >
+          {m.walkover ? 'W/O ✓' : 'Absent / W/O'}
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => setEditingMatch(m)}
+        aria-label={`Edit match #${m.matchNumber}`}
+        className={smallOutlineButton}
+      >
+        <Edit2 className="w-3 h-3" />
+        Edit
+      </button>
+    </div>
+  );
+
+  const visibleFixtures = matches.filter((m) => matchesFixtureFilter(m, fixtureFilter));
+
+  const teamsByGroup = [
+    ...[...groups]
+      .sort((a, b) => a.order - b.order)
+      .map((g) => ({ id: g.id, name: g.name, teams: teams.filter((t) => t.groupId === g.id) })),
+    { id: '__none__', name: 'No group', teams: teams.filter((t) => !groups.some((g) => g.id === t.groupId)) },
+  ].filter((g) => g.id !== '__none__' || g.teams.length > 0);
+
+  const groupOf = (row: StandingsRow) => groups.find((g) => g.id === row.groupId)?.name;
+
+  /* ------------------------------------------------------------------ */
+  /* Render                                                              */
+  /* ------------------------------------------------------------------ */
+
+  return (
+    <div className="space-y-4 sm:space-y-6 pb-24">
+      {/* Page heading, as on the public pages */}
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4 pt-1 sm:pt-4">
+        <div>
+          <p className="text-[11px] font-mono font-bold uppercase tracking-widest text-[#0A0A0F]/70">
+            Admin panel
+          </p>
+          <h1 className="mt-1 font-display font-bold uppercase tracking-tight text-[#0A0A0F] leading-[0.85] text-[2.75rem] sm:text-7xl">
+            Tournament Control
+          </h1>
         </div>
-      </div>
+        <button
+          type="button"
+          id="btn-admin-reset-all-scores"
+          onClick={() => {
+            setShowResetAllConfirm(true);
+            setFeedbackMessage(null);
+          }}
+          disabled={resettingAll}
+          className={`${dangerButton} self-start sm:self-auto shadow-md`}
+          title="Reset every match score to 0-0 and clear the knockout bracket back to TBD"
+        >
+          <RotateCcw className="w-4 h-4" />
+          Reset all scores
+        </button>
+      </header>
 
       {/* Reset All Scores Confirmation */}
       {showResetAllConfirm && (
-        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/40 text-rose-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-start sm:items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5 sm:mt-0" />
-            <span>
-              Reset the scores of <strong>ALL matches</strong> back to 0-0? Every completed and
-              in-progress game will be cleared and the spectator boards will update immediately.
-              The knockout bracket will also be cleared back to TBD. Court times and courts stay
-              unchanged. This cannot be undone.
-            </span>
+        <div
+          role="alert"
+          className="rounded-2xl bg-white border-2 border-rose-400 shadow-md px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+        >
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+            <p className="text-sm text-rose-900">
+              Reset the scores of <strong>all matches</strong> back to 0-0? Every completed and in-progress
+              game is cleared, the spectator boards update immediately and the knockout bracket goes back
+              to TBD. Courts and times stay. This cannot be undone.
+            </p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               id="btn-admin-confirm-reset-all-scores"
               onClick={handleResetAllScores}
               disabled={resettingAll}
-              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              className="min-h-10 px-4 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-mono font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap"
             >
-              {resettingAll ? 'Resetting…' : 'Yes, Reset All'}
+              {resettingAll ? 'Resetting…' : 'Yes, reset all'}
             </button>
             <button
               type="button"
               onClick={() => setShowResetAllConfirm(false)}
               disabled={resettingAll}
-              className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+              className={outlineButton}
             >
               Cancel
             </button>
@@ -629,972 +805,914 @@ export const AdminView: React.FC<AdminViewProps> = ({
         </div>
       )}
 
-      {/* Feedback Alert */}
-      {feedbackMessage && (
-        <div
-          id="admin-alert-banner"
-          className={`p-3.5 rounded-xl border text-xs sm:text-sm flex items-center justify-between gap-2 animate-in zoom-in-95 duration-150 ${
-            feedbackMessage.type === 'success'
-              ? 'bg-blue-500/10 border-blue-500/30 text-blue-300'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {feedbackMessage.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-            )}
-            <span>{feedbackMessage.text}</span>
-          </div>
-          <button onClick={() => setFeedbackMessage(null)} className="text-xs opacity-70 hover:opacity-100">
-            &times;
-          </button>
-        </div>
-      )}
-
-      {/* Sub Tabs Navigation */}
-      <div className="flex items-center gap-1.5 p-1 bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto">
-        <button
-          onClick={() => setActiveSubTab('matches')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${
-            activeSubTab === 'matches'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Calendar className="w-4 h-4" />
-          <span>Match Fixtures ({matches.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveSubTab('tiebreaks')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${
-            activeSubTab === 'tiebreaks'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Coins className="w-4 h-4" />
-          <span>Tie-breaks</span>
-          {tieSets.length > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black">
-              {tieSets.length}
+      {/* At-a-glance tiles; each one opens the tab that deals with it */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+        {stats.map((stat) => (
+          <button
+            key={stat.label}
+            type="button"
+            onClick={() => {
+              stat.onOpen?.();
+              setActiveSubTab(stat.tab);
+            }}
+            className={`text-left rounded-2xl sm:rounded-3xl border shadow-md hover:shadow-xl px-3.5 py-3 sm:p-5 transition-all cursor-pointer ${
+              stat.tone === 'alert'
+                ? 'bg-amber-50 border-amber-300 hover:border-amber-400'
+                : 'bg-white border-blue-300/80 hover:border-blue-500'
+            }`}
+          >
+            <span className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-widest text-slate-500">
+              {stat.tone === 'live' && (
+                <span className="w-2 h-2 rounded-full bg-[#CCFF00] border border-[#0A0A0F] animate-pulse" />
+              )}
+              {stat.tone === 'alert' && <Coins className="w-3.5 h-3.5 text-amber-600" />}
+              {stat.label}
             </span>
-          )}
-        </button>
-
-        <button
-          onClick={() => setActiveSubTab('qfdraw')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${
-            activeSubTab === 'qfdraw'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Shuffle className="w-4 h-4" />
-          <span>QF Draw</span>
-        </button>
-
-        <button
-          onClick={() => setActiveSubTab('teams')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${
-            activeSubTab === 'teams'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Teams ({teams.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveSubTab('courts')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${
-            activeSubTab === 'courts'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Grid className="w-4 h-4" />
-          <span>Courts ({courts.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveSubTab('sheets')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${
-            activeSubTab === 'sheets'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <FileSpreadsheet className="w-4 h-4" />
-          <span>Google Sheets & CSV</span>
-        </button>
-
-        <button
-          onClick={() => setActiveSubTab('qr')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${
-            activeSubTab === 'qr'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <QrCode className="w-4 h-4" />
-          <span>QR Code Poster</span>
-        </button>
+            <span className="mt-1.5 sm:mt-2 flex items-baseline gap-1.5">
+              <span className="font-display font-bold text-3xl sm:text-5xl leading-none text-[#0A0A0F]">
+                {stat.value}
+              </span>
+              {stat.of !== undefined && (
+                <span className="text-sm font-mono font-bold text-slate-400">/ {stat.of}</span>
+              )}
+            </span>
+          </button>
+        ))}
       </div>
 
-      {/* TAB: QUARTER-FINAL DRAW BY LOT */}
-      {activeSubTab === 'qfdraw' && (
-        <div className="space-y-4 max-w-3xl">
-          <div>
-            <h3 className="text-base font-bold text-white font-display">Quarter-final Draw (by lot)</h3>
-            <p className="text-xs text-slate-400 max-w-xl">
-              The 8 qualified teams draw lots live at the venue. Enter the drawn pairings here
-              exactly as drawn. The semi-finals follow the bracket: QF1 winner vs QF2 winner, and
-              QF3 winner vs QF4 winner.
-            </p>
-          </div>
+      <div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6 lg:items-start space-y-4 lg:space-y-0">
+        {/* Phones and tablets: the site's swipeable pill-tab row */}
+        <nav
+          aria-label="Admin sections"
+          className="lg:hidden flex items-center gap-1.5 p-1.5 bg-white/90 backdrop-blur-md border border-blue-400/60 rounded-2xl overflow-x-auto scrollbar-none shadow-md"
+        >
+          {navGroups
+            .flatMap((g) => g.items)
+            .map((item) => {
+              const active = activeSubTab === item.id;
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={(e) => {
+                    setActiveSubTab(item.id);
+                    e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+                  }}
+                  className={`shrink-0 min-h-11 px-3.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap inline-flex items-center gap-2 transition-colors cursor-pointer ${
+                    active ? 'bg-[#0A0A0F] text-[#CCFF00] shadow-md' : 'text-slate-800 hover:bg-blue-100'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {item.label}
+                  {renderBadge(item.badge, active)}
+                </button>
+              );
+            })}
+        </nav>
 
-          {qfStarted && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs">
-              A quarter-final has already started, so the draw is locked. Reset that match's score to
-              change the draw.
-            </div>
-          )}
-          {qualifiedRows.length < 8 && (
-            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs">
-              Only {qualifiedRows.length} teams are qualified so far. Finish the group stage before
-              the draw.
-            </div>
-          )}
-          {tieSets.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setActiveSubTab('tiebreaks')}
-              className="w-full text-left p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs font-bold"
-            >
-              A live toss is still needed to settle who qualifies — open Tie-breaks →
-            </button>
-          )}
-
-          <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-            <span className="text-xs font-black uppercase tracking-wider text-lime-400">
-              Qualified teams ({qualifiedRows.length})
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {qualifiedRows.map((row) => {
-                const used = qfDraw.flat().includes(row.teamId);
+        {/* Desktop: grouped sidebar */}
+        <nav
+          aria-label="Admin sections"
+          className="hidden lg:block lg:sticky lg:top-4 bg-white border border-blue-300/80 rounded-3xl shadow-xl p-2.5"
+        >
+          {navGroups.map((group) => (
+            <div key={group.label} className="pb-1.5">
+              <div className="px-3 pt-3 pb-1.5 text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">
+                {group.label}
+              </div>
+              {group.items.map((item) => {
+                const active = activeSubTab === item.id;
+                const Icon = item.icon;
                 return (
-                  <span
-                    key={row.teamId}
-                    className={`px-2 py-1 rounded-lg text-[11px] font-bold border ${
-                      used
-                        ? 'bg-slate-950 text-slate-500 border-slate-800 line-through'
-                        : 'bg-lime-400/10 text-lime-300 border-lime-400/30'
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-current={active ? 'page' : undefined}
+                    onClick={() => setActiveSubTab(item.id)}
+                    className={`w-full min-h-11 px-3 rounded-2xl text-sm font-bold flex items-center gap-3 text-left transition-colors cursor-pointer ${
+                      active ? 'bg-[#0A0A0F] text-[#CCFF00] shadow-md' : 'text-slate-800 hover:bg-blue-50'
                     }`}
                   >
-                    {pairLabel(row)}
-                    <span className="ml-1 text-[9px] text-slate-500">
-                      {groups.find((g) => g.id === row.groupId)?.name} #{row.position}
-                    </span>
-                  </span>
+                    <Icon className={`w-4 h-4 shrink-0 ${active ? '' : 'text-blue-600'}`} />
+                    <span className="flex-1 min-w-0 truncate">{item.label}</span>
+                    {renderBadge(item.badge, active)}
+                  </button>
                 );
               })}
             </div>
-          </div>
+          ))}
+        </nav>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {qfDraw.map((pair, qfIndex) => (
-              <div key={qfIndex} className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-wider text-white">
-                    QF{qfIndex + 1}
-                  </span>
-                  <span className="text-[10px] font-mono text-slate-500">
-                    winner → SF{qfIndex < 2 ? 1 : 2}
-                  </span>
-                </div>
-                {pair.map((teamId, slot) => (
-                  <select
-                    key={slot}
-                    value={teamId}
-                    disabled={qfStarted}
-                    onChange={(e) =>
-                      setQfDraw((current) =>
-                        current.map((p, i) =>
-                          i === qfIndex ? p.map((id, s) => (s === slot ? e.target.value : id)) : p
-                        )
-                      )
-                    }
-                    className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-lime-400 disabled:opacity-50"
-                  >
-                    <option value="">— pick team —</option>
-                    {qualifiedRows.map((row) => {
-                      const takenElsewhere =
-                        row.teamId !== teamId && qfDraw.flat().includes(row.teamId);
-                      return (
-                        <option key={row.teamId} value={row.teamId} disabled={takenElsewhere}>
-                          {pairLabel(row)} ({groups.find((g) => g.id === row.groupId)?.name})
-                          {takenElsewhere ? ' — already drawn' : ''}
-                        </option>
-                      );
-                    })}
-                  </select>
-                ))}
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={handleSaveQfDraw}
-              disabled={qfStarted || savingQfDraw}
-              className="px-5 py-2.5 rounded-xl text-sm font-bold bg-lime-400 hover:bg-lime-300 text-slate-950 shadow-md disabled:opacity-50"
-            >
-              {savingQfDraw ? 'Saving…' : 'Save Quarter-final Draw'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setQfDraw([['', ''], ['', ''], ['', ''], ['', '']])}
-              disabled={qfStarted || savingQfDraw}
-              className="px-4 py-2.5 rounded-xl text-sm font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-50"
-            >
-              Clear form
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* TAB: TIE-BREAKS (live toss, bylaw §4) */}
-      {activeSubTab === 'tiebreaks' && (
-        <div className="space-y-4 max-w-3xl">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="text-base font-bold text-white font-display">Live Toss Tie-breaks</h3>
-              <p className="text-xs text-slate-400 max-w-xl">
-                Bylaw §4: teams level on points are separated by game difference. If they are still
-                level, a live toss decides. Ties appear here once a group (or, for seeding and
-                runners-up, the whole group stage) is finished. Record each toss winner below.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleClearTosses}
-              className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
-            >
-              Clear all toss results
-            </button>
-          </div>
-
-          {tieSets.length === 0 ? (
-            <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 text-center text-sm text-slate-400">
-              No tosses needed right now.
-            </div>
-          ) : (
-            tieSets.map((set) => (
-              <div
-                key={`${set.label}-${set.rows.map((r) => r.teamId).join('-')}`}
-                className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-amber-300">
-                    {set.label}
-                  </span>
-                  <span className="text-[11px] font-mono text-amber-200/80">
-                    {set.rows[0].points} pts · game diff{' '}
-                    {set.rows[0].scoreDiff > 0 ? `+${set.rows[0].scoreDiff}` : set.rows[0].scoreDiff} ·{' '}
-                    {set.rows.length} teams level
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {set.rows.map((row) => (
-                    <div
-                      key={row.teamId}
-                      className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-sm font-bold text-white truncate">{pairLabel(row)}</div>
-                        <div className="text-[11px] text-slate-400">
-                          {groups.find((g) => g.id === row.groupId)?.name} · #{row.position}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleTossWinner(row, set.rows)}
-                        className="shrink-0 px-3 py-1.5 rounded-lg bg-lime-400 hover:bg-lime-300 text-slate-950 text-xs font-black"
-                      >
-                        Won toss
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                {set.rows.length > 2 && (
-                  <p className="text-[11px] text-amber-200/80">
-                    3+ teams level: record the first toss winner, then run the next toss between the
-                    remaining teams.
-                  </p>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* TAB 1: MATCHES MANAGER */}
-      {activeSubTab === 'matches' && (
-        <div className="space-y-4">
-          {tieSets.length > 0 && (
+        <div className="min-w-0 space-y-4">
+          {/* Tie-break reminder on the match-day tabs */}
+          {tieSets.length > 0 && (activeSubTab === 'matches' || activeSubTab === 'qfdraw' || activeSubTab === 'quick') && (
             <button
               type="button"
               onClick={() => setActiveSubTab('tiebreaks')}
-              className="w-full text-left p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs font-bold flex items-center gap-2"
+              className="w-full text-left rounded-2xl bg-amber-50 border-2 border-amber-300 px-4 py-3 text-sm font-bold text-amber-900 flex items-center gap-3 shadow-md cursor-pointer hover:border-amber-400"
             >
-              <Coins className="w-4 h-4 text-amber-400 shrink-0" />
-              {tieSets.length} live toss{tieSets.length === 1 ? '' : 'es'} needed to settle standings
-              — open Tie-breaks →
+              <Coins className="w-5 h-5 text-amber-600 shrink-0" />
+              <span className="flex-1">
+                {tieSets.length} live toss{tieSets.length === 1 ? '' : 'es'} needed to settle the standings
+              </span>
+              <span className="text-[11px] font-mono uppercase tracking-widest">Open →</span>
             </button>
           )}
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-white font-display">
-              Match Scheduling & Score Correction
-            </h3>
-            <span className="text-xs text-slate-400">
-              Admin can override scores, reassign courts, and update statuses
-            </span>
-          </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-800 bg-slate-950/70 text-[11px] font-extrabold uppercase text-slate-400">
-                    <th className="py-3 px-3 text-center">#</th>
-                    <th className="py-3 px-3">Group</th>
-                    <th className="py-3 px-4">Matchup</th>
-                    <th className="py-3 px-3">Court</th>
-                    <th className="py-3 px-3">Time</th>
-                    <th className="py-3 px-3">Status</th>
-                    <th className="py-3 px-3 text-center">Score</th>
-                    <th className="py-3 px-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {matches.map((m) => (
-                    <tr key={m.id} className="hover:bg-slate-850/50 transition-colors">
-                      <td className="py-3 px-3 text-center font-mono text-slate-500">
-                        {m.matchNumber}
-                      </td>
-                      <td className="py-3 px-3 font-semibold text-lime-400">{m.group?.name}</td>
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-white">
-                          {pairLabel(m.team1, 'TBD')} <span className="text-slate-500 font-normal">vs</span>{' '}
-                          {pairLabel(m.team2, 'TBD')}
+          {/* TAB: QUICK RESULTS (final games typed from the paper score sheets) */}
+          {activeSubTab === 'quick' && (
+            <QuickResultsPanel
+              token={session.token}
+              matches={matches}
+              courts={courts}
+              onRefreshData={onRefreshData}
+            />
+          )}
+
+          {/* TAB: FIXTURES — schedule and score corrections */}
+          {activeSubTab === 'matches' && (
+            <SectionCard
+              title="Fixtures"
+              aside={<BandLabel>{matches.length} matches</BandLabel>}
+              strip="Edit fixes a score, court, time or status · Absent / W/O records a walkover"
+              bodyClassName=""
+            >
+              <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3">
+                <div className="flex items-center gap-1.5 p-1.5 bg-white border border-blue-400/60 rounded-2xl overflow-x-auto scrollbar-none">
+                  {FIXTURE_FILTERS.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      aria-pressed={fixtureFilter === f.id}
+                      onClick={() => setFixtureFilter(f.id)}
+                      className={`flex-1 px-3 py-2 rounded-xl text-xs sm:text-sm font-black tracking-wider uppercase whitespace-nowrap transition-colors cursor-pointer ${
+                        fixtureFilter === f.id ? 'bg-[#0A0A0F] text-[#CCFF00] shadow-md' : 'text-slate-800 hover:bg-blue-100'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {visibleFixtures.length === 0 ? (
+                <p className="px-6 pb-8 pt-4 text-center text-sm italic text-slate-500">No matches here.</p>
+              ) : (
+                <>
+                  {/* Tablet / desktop: table */}
+                  <div className="hidden md:block">
+                    <table className="w-full text-left text-sm">
+                      <thead>
+                        <tr className="bg-slate-50 border-y border-slate-200 text-[10px] font-mono font-bold uppercase tracking-widest text-slate-500">
+                          <th className="py-3 pl-6 pr-2 w-12">#</th>
+                          <th className="py-3 px-3">Pairings</th>
+                          <th className="py-3 px-3">Court · Time</th>
+                          <th className="py-3 px-3">Status</th>
+                          <th className="py-3 px-3 text-center">Score</th>
+                          <th className="py-3 pl-3 pr-6 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {visibleFixtures.map((m) => (
+                          <tr key={m.id} className={m.status === 'live' ? 'bg-[#CCFF00]/10' : 'hover:bg-blue-50/50'}>
+                            <td className="py-3 pl-6 pr-2 align-top font-mono font-bold text-slate-400">{m.matchNumber}</td>
+                            <td className="py-3 px-3 align-top">
+                              <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-blue-700 mb-0.5">
+                                {adminStageLabel(m)}
+                              </span>
+                              {fixturePair(m, 1)}
+                              {fixturePair(m, 2)}
+                            </td>
+                            <td className="py-3 px-3 align-top">
+                              <span className="block font-semibold text-slate-700 whitespace-nowrap">
+                                {m.court?.name || 'Unassigned'}
+                              </span>
+                              <span className="block text-xs font-mono text-slate-500 whitespace-nowrap">{m.scheduledTime}</span>
+                            </td>
+                            <td className="py-3 px-3 align-top">
+                              <MatchStatusPill match={m} />
+                            </td>
+                            <td className="py-3 px-3 align-top text-center">{fixtureScore(m)}</td>
+                            <td className="py-3 pl-3 pr-6 align-top">{fixtureActions(m)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Phones: match tiles */}
+                  <ul className="md:hidden px-3 pb-3 space-y-2.5">
+                    {visibleFixtures.map((m) => (
+                      <li
+                        key={m.id}
+                        className={`p-3.5 rounded-2xl border space-y-2.5 ${
+                          m.status === 'live' ? 'bg-[#CCFF00]/10 border-[#0A0A0F]' : 'bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-700 truncate min-w-0">
+                            Match #{m.matchNumber} • {adminStageLabel(m)}
+                          </span>
+                          <MatchStatusPill match={m} />
                         </div>
-                      </td>
-                      <td className="py-3 px-3 text-slate-300">{m.court?.name || 'Unassigned'}</td>
-                      <td className="py-3 px-3 font-mono text-slate-400">{m.scheduledTime}</td>
-                      <td className="py-3 px-3">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            m.status === 'live'
-                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                              : m.status === 'completed'
-                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                              : m.status === 'ready'
-                              ? 'bg-lime-400/20 text-lime-400 border border-lime-400/30'
-                              : 'bg-slate-800 text-slate-400'
-                          }`}
-                        >
-                          {m.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-center font-display font-extrabold text-lime-400">
-                        {m.team1Score !== null && m.team2Score !== null
-                          ? `${m.team1Score} — ${m.team2Score}`
-                          : '—'}
-                        {m.scoreSummary && (
-                          <div className="text-[10px] font-mono text-slate-400 font-normal">
-                            {m.scoreSummary}
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <div className="min-w-0">
+                            {fixturePair(m, 1)}
+                            {fixturePair(m, 2)}
                           </div>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {(m.status !== 'completed' || m.walkover) && m.status !== 'cancelled' && (
-                            <button
-                              type="button"
-                              onClick={() => setAbsentMatch(m)}
-                              title="A team did not come: record a walkover (W/O)"
-                              className="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-semibold whitespace-nowrap"
-                            >
-                              {m.walkover ? 'W/O ✓' : 'Absent / W/O'}
-                            </button>
-                          )}
+                          <div className="shrink-0">{fixtureScore(m)}</div>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="text-xs font-mono text-slate-500">
+                            {m.court?.name || 'Unassigned'} · {m.scheduledTime}
+                          </span>
+                          {fixtureActions(m)}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </SectionCard>
+          )}
+
+          {/* TAB: TIE-BREAKS (live toss, bylaw §4) */}
+          {activeSubTab === 'tiebreaks' && (
+            <SectionCard
+              title="Tie-breaks"
+              aside={
+                <button type="button" onClick={handleClearTosses} className={bandOutlineButton}>
+                  Clear all
+                </button>
+              }
+              strip="Bylaw §4 · points → game difference → live toss"
+            >
+              <p className="text-sm text-slate-600 max-w-2xl">
+                Teams level on points are separated by game difference. If they are still level, a live
+                toss decides. Ties show up here once a group (or, for the runners-up, the whole group
+                stage) is finished. Record each toss winner below.
+              </p>
+
+              {tieSets.length === 0 ? (
+                <div className="py-8 rounded-2xl bg-slate-50 border border-slate-200 text-center text-sm text-slate-500">
+                  <CheckCircle2 className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+                  No tosses needed right now.
+                </div>
+              ) : (
+                tieSets.map((set) => (
+                  <div
+                    key={`${set.label}-${set.rows.map((r) => r.teamId).join('-')}`}
+                    className="rounded-2xl bg-amber-50 border-2 border-amber-300 p-4 space-y-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xl font-display font-semibold uppercase tracking-wide leading-none text-[#0A0A0F]">
+                        {set.label}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-800">
+                        {set.rows[0].points} pts · game diff{' '}
+                        {set.rows[0].scoreDiff > 0 ? `+${set.rows[0].scoreDiff}` : set.rows[0].scoreDiff} ·{' '}
+                        {set.rows.length} level
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {set.rows.map((row) => (
+                        <div
+                          key={row.teamId}
+                          className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl bg-white border border-amber-200"
+                        >
+                          <div className="min-w-0">
+                            <div className="text-sm font-bold text-[#0A0A0F] truncate">{pairLabel(row)}</div>
+                            <div className="text-[11px] font-mono text-slate-500">
+                              {groupOf(row)} · #{row.position}
+                            </div>
+                          </div>
                           <button
                             type="button"
-                            onClick={() => setEditingMatch(m)}
-                            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1"
+                            onClick={() => handleTossWinner(row, set.rows)}
+                            className={`${primaryButton} min-h-9 px-3.5 text-[10px] shrink-0`}
                           >
-                            <Edit2 className="w-3 h-3 text-zinc-400" />
-                            <span>Edit</span>
+                            Won toss
                           </button>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: TEAMS MANAGER */}
-      {activeSubTab === 'teams' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-bold text-white font-display">
-                Registered Tournament Teams ({teams.length}/20)
-              </h3>
-              <p className="text-xs text-slate-400">
-                5 Groups &bull; 4 Teams per group &bull; Editable roster
-              </p>
-            </div>
-            <button
-              onClick={() =>
-                setEditingTeam({
-                  name: '',
-                  player1: '',
-                  player2: '',
-                  groupId: groups[0]?.id || 'group-a',
-                })
-              }
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-lime-400 hover:bg-lime-300 text-slate-950 shadow-md transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Team</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {teams.map((t) => {
-              const gName = groups.find((g) => g.id === t.groupId)?.name;
-              return (
-                <div
-                  key={t.id}
-                  className={`p-4 rounded-xl border flex items-start justify-between gap-3 shadow-md ${
-                    t.withdrawn ? 'bg-rose-950/30 border-rose-500/40' : 'bg-slate-900 border-slate-800'
-                  }`}
-                >
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-bold text-lime-400 uppercase tracking-wider block mb-1">
-                      {gName}
-                      {t.withdrawn && (
-                        <span className="ml-2 px-1.5 py-0.5 rounded bg-rose-500 text-white text-[9px] font-black">
-                          DID NOT COME
-                        </span>
-                      )}
-                    </span>
-                    <div
-                      className={`font-sans font-bold text-sm leading-tight ${
-                        t.withdrawn ? 'text-slate-400 line-through' : 'text-white'
-                      }`}
-                    >
-                      {pairLabel(t, 'TBD')}
+                      ))}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleTeamWithdrawn(t, !t.withdrawn)}
-                      className={`mt-2.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${
-                        t.withdrawn
-                          ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
-                          : 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border-rose-500/30'
-                      }`}
-                    >
-                      {t.withdrawn ? 'Team is back' : 'Did not come (W/O all)'}
-                    </button>
+                    {set.rows.length > 2 && (
+                      <p className="text-xs text-amber-900">
+                        3+ teams level: record the first toss winner, then run the next toss between the
+                        remaining teams.
+                      </p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => setEditingTeam(t)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-                      title="Edit team"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteTeam(t.id, pairLabel(t, 'this pairing'))}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                      title="Delete team"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                ))
+              )}
+            </SectionCard>
+          )}
 
-      {/* TAB 3: COURTS MANAGER */}
-      {activeSubTab === 'courts' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-bold text-white font-display">Courts Configuration</h3>
-              <p className="text-xs text-slate-400">
-                Scorekeepers and spectators see these active tournament courts
+          {/* TAB: QUARTER-FINAL DRAW BY LOT */}
+          {activeSubTab === 'qfdraw' && (
+            <SectionCard
+              title="Quarter-final draw"
+              aside={<BandLabel>By lot</BandLabel>}
+              strip="QF1 & QF2 winners → SF1 · QF3 & QF4 winners → SF2"
+            >
+              <p className="text-sm text-slate-600 max-w-2xl">
+                The 8 qualified teams draw lots live at the venue. Enter the pairings here exactly as
+                drawn.
               </p>
-            </div>
-            <button
-              onClick={handleAddCourt}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-lime-400 hover:bg-lime-300 text-slate-950 shadow-md transition-colors"
+
+              {qfStarted && (
+                <div className="rounded-2xl bg-white border-2 border-rose-400 px-4 py-3 text-sm font-semibold text-rose-800">
+                  A quarter-final has already started, so the draw is locked. Reset that match's score
+                  to change the draw.
+                </div>
+              )}
+              {qualifiedRows.length < 8 && (
+                <div className="rounded-2xl bg-amber-50 border-2 border-amber-300 px-4 py-3 text-sm font-semibold text-amber-900">
+                  Only {qualifiedRows.length} teams are qualified so far. Finish the group stage before the
+                  draw.
+                </div>
+              )}
+
+              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-2.5">
+                <span className={fieldLabel}>Qualified teams ({qualifiedRows.length})</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {qualifiedRows.length === 0 && (
+                    <span className="text-sm italic text-slate-500">Nobody has qualified yet.</span>
+                  )}
+                  {qualifiedRows.map((row) => {
+                    const used = qfDraw.flat().includes(row.teamId);
+                    return (
+                      <span
+                        key={row.teamId}
+                        className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                          used
+                            ? 'bg-white text-slate-400 border-slate-200 line-through'
+                            : 'bg-[#CCFF00] text-[#0A0A0F] border-[#0A0A0F]/20'
+                        }`}
+                      >
+                        {pairLabel(row)}
+                        <span className="ml-1.5 text-[10px] font-mono font-bold opacity-60">
+                          {groupOf(row)} #{row.position}
+                        </span>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {qfDraw.map((pair, qfIndex) => (
+                  <div key={qfIndex} className="rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="px-4 py-2.5 bg-[#0A0A0F] flex items-center justify-between">
+                      <span className="text-2xl font-display font-semibold uppercase tracking-wide leading-none text-[#CCFF00]">
+                        QF{qfIndex + 1}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-white/60">
+                        Winner → SF{qfIndex < 2 ? 1 : 2}
+                      </span>
+                    </div>
+                    <div className="p-3 space-y-2">
+                      {pair.map((teamId, slot) => (
+                        <select
+                          key={slot}
+                          value={teamId}
+                          disabled={qfStarted}
+                          aria-label={`QF${qfIndex + 1} team ${slot + 1}`}
+                          onChange={(e) =>
+                            setQfDraw((current) =>
+                              current.map((p, i) =>
+                                i === qfIndex ? p.map((id, s) => (s === slot ? e.target.value : id)) : p
+                              )
+                            )
+                          }
+                          className={fieldInput}
+                        >
+                          <option value="">— pick team —</option>
+                          {qualifiedRows.map((row) => {
+                            const takenElsewhere = row.teamId !== teamId && qfDraw.flat().includes(row.teamId);
+                            return (
+                              <option key={row.teamId} value={row.teamId} disabled={takenElsewhere}>
+                                {pairLabel(row)} ({groupOf(row)})
+                                {takenElsewhere ? ' — already drawn' : ''}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleSaveQfDraw}
+                  disabled={qfStarted || savingQfDraw}
+                  className={`${primaryButton} min-h-11 px-5`}
+                >
+                  {savingQfDraw ? 'Saving…' : 'Save quarter-final draw'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQfDraw([['', ''], ['', ''], ['', ''], ['', '']])}
+                  disabled={qfStarted || savingQfDraw}
+                  className={`${outlineButton} min-h-11`}
+                >
+                  Clear form
+                </button>
+              </div>
+            </SectionCard>
+          )}
+
+          {/* TAB: TEAMS */}
+          {activeSubTab === 'teams' && (
+            <SectionCard
+              title="Teams"
+              aside={
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditingTeam({
+                      name: '',
+                      player1: '',
+                      player2: '',
+                      groupId: groups[0]?.id || 'group-a',
+                    })
+                  }
+                  className={bandButton}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add team
+                </button>
+              }
+              strip={`${teams.length} pairings · ${groups.length} groups · Did not come records walkovers for every unplayed match`}
             >
-              <Plus className="w-4 h-4" />
-              <span>Add Court</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {courts.map((court) => (
-              <div
-                key={court.id}
-                className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-3 shadow-md"
-              >
-                <div>
-                  <h4 className="font-bold text-white text-sm">{court.name}</h4>
-                  <span
-                    className={`inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                      court.active
-                        ? 'bg-blue-500/20 text-blue-400'
-                        : 'bg-slate-800 text-slate-400'
-                    }`}
-                  >
-                    {court.active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleToggleCourt(court.id)}
-                    className="px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
-                  >
-                    {court.active ? 'Disable' : 'Enable'}
-                  </button>
-                  <button
-                    onClick={() => handleDeleteCourt(court.id, court.name)}
-                    className="p-1.5 text-slate-500 hover:text-rose-400"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4">
+                {teamsByGroup.map((group) => (
+                  <div key={group.id} className="rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="px-4 py-2.5 bg-blue-50 border-b border-blue-100 flex items-center justify-between gap-2">
+                      <span className="text-xl font-display font-semibold uppercase tracking-wide leading-none text-[#0A0A0F]">
+                        {group.name}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-blue-800/80">
+                        {group.teams.length} pairs
+                      </span>
+                    </div>
+                    <ul className="divide-y divide-slate-100">
+                      {group.teams.length === 0 && (
+                        <li className="px-4 py-4 text-sm italic text-slate-500">No pairings yet.</li>
+                      )}
+                      {group.teams.map((t) => (
+                        <li
+                          key={t.id}
+                          className={`px-4 py-3 flex items-center gap-3 ${t.withdrawn ? 'bg-rose-50' : ''}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div
+                              className={`text-sm font-bold leading-snug ${
+                                t.withdrawn ? 'text-slate-400 line-through' : 'text-[#0A0A0F]'
+                              }`}
+                            >
+                              {pairLabel(t, 'TBD')}
+                            </div>
+                            {t.withdrawn && (
+                              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-rose-600">
+                                Did not come
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleTeamWithdrawn(t, !t.withdrawn)}
+                            className={t.withdrawn ? smallOutlineButton : smallQuietDangerButton}
+                          >
+                            {t.withdrawn ? 'Team is back' : 'Did not come'}
+                          </button>
+                          <div className="flex items-center shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setEditingTeam(t)}
+                              className="w-8 h-8 rounded-full text-slate-500 hover:text-[#0A0A0F] hover:bg-slate-100 inline-flex items-center justify-center cursor-pointer"
+                              aria-label={`Edit ${pairLabel(t, 'team')}`}
+                              title="Edit team"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTeam(t.id, pairLabel(t, 'this pairing'))}
+                              className="w-8 h-8 rounded-full text-slate-500 hover:text-rose-600 hover:bg-rose-50 inline-flex items-center justify-center cursor-pointer"
+                              aria-label={`Delete ${pairLabel(t, 'team')}`}
+                              title="Delete team"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </SectionCard>
+          )}
 
-      {/* TAB 5: GOOGLE SHEETS COMPATIBILITY & CSV EXPORT */}
-      {activeSubTab === 'sheets' && (
-        <div className="space-y-6 max-w-4xl">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400">
-                <FileSpreadsheet className="w-6 h-6" />
+          {/* TAB: COURTS */}
+          {activeSubTab === 'courts' && (
+            <SectionCard
+              title="Courts"
+              aside={
+                <button type="button" onClick={handleAddCourt} className={bandButton}>
+                  <Plus className="w-3.5 h-3.5" />
+                  Add court
+                </button>
+              }
+              strip={`${courts.filter((c) => c.active).length} active · scorekeepers and spectators see active courts`}
+            >
+              <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 overflow-hidden">
+                {courts.map((court) => {
+                  const courtMatches = matches.filter((m) => m.courtId === court.id).length;
+                  return (
+                    <li key={court.id} className="px-4 py-3.5 flex items-center gap-3 flex-wrap sm:flex-nowrap">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-2xl font-display font-semibold uppercase tracking-wide leading-none text-[#0A0A0F] truncate">
+                          {court.name}
+                        </div>
+                        <div className="mt-1 text-[11px] font-mono font-bold text-slate-500">
+                          {courtMatches} match{courtMatches === 1 ? '' : 'es'} scheduled
+                        </div>
+                      </div>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-black uppercase tracking-wider ${
+                          court.active ? 'bg-[#CCFF00] text-[#0A0A0F]' : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        {court.active ? 'Active' : 'Inactive'}
+                      </span>
+                      <button type="button" onClick={() => handleToggleCourt(court.id)} className={smallOutlineButton}>
+                        {court.active ? 'Disable' : 'Enable'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCourt(court.id, court.name)}
+                        className="w-8 h-8 rounded-full text-slate-500 hover:text-rose-600 hover:bg-rose-50 inline-flex items-center justify-center cursor-pointer"
+                        aria-label={`Delete ${court.name}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </SectionCard>
+          )}
+
+          {/* TAB: EXPORT (Google Sheets & CSV) */}
+          {activeSubTab === 'sheets' && (
+            <SectionCard title="Export data" strip="Backups and Google Sheets">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  id="btn-export-csv"
+                  onClick={handleExportCsv}
+                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-500 transition-colors flex items-center justify-between gap-3 text-left cursor-pointer group"
+                >
+                  <div>
+                    <span className="block text-sm font-bold text-[#0A0A0F] group-hover:text-blue-700">
+                      Matches & scores (.csv)
+                    </span>
+                    <span className="block text-xs text-slate-500 mt-0.5">
+                      Every fixture and score, ready for Excel or Google Sheets
+                    </span>
+                  </div>
+                  <Download className="w-5 h-5 text-blue-600 shrink-0" />
+                </button>
+
+                <button
+                  type="button"
+                  id="btn-export-json"
+                  onClick={handleExportJson}
+                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:border-blue-500 transition-colors flex items-center justify-between gap-3 text-left cursor-pointer group"
+                >
+                  <div>
+                    <span className="block text-sm font-bold text-[#0A0A0F] group-hover:text-blue-700">
+                      Full tournament backup (.json)
+                    </span>
+                    <span className="block text-xs text-slate-500 mt-0.5">
+                      Teams, groups, courts, settings and standings
+                    </span>
+                  </div>
+                  <Download className="w-5 h-5 text-blue-600 shrink-0" />
+                </button>
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-white font-display">
-                  Google Sheets & Data Management Integration
+
+              <div className="rounded-2xl bg-blue-50 border border-blue-100 p-4 sm:p-5 space-y-3">
+                <h3 className="text-xl font-display font-semibold uppercase tracking-wide leading-none text-[#0A0A0F]">
+                  Live link to Google Sheets
                 </h3>
-                <p className="text-xs text-slate-400">
-                  Export live tournament results, matches, and standings for Google Sheets backup
-                </p>
+                <ol className="text-sm text-slate-700 space-y-2 list-decimal list-inside leading-relaxed">
+                  <li>Open your Google Sheet and select cell A1.</li>
+                  <li>
+                    To pull the matches:{' '}
+                    <code className="px-2 py-0.5 rounded-lg bg-white border border-blue-200 text-blue-800 font-mono text-xs break-all">
+                      =IMPORTDATA("{window.location.origin}/api/matches")
+                    </code>
+                  </li>
+                  <li>
+                    To pull the standings:{' '}
+                    <code className="px-2 py-0.5 rounded-lg bg-white border border-blue-200 text-blue-800 font-mono text-xs break-all">
+                      =IMPORTDATA("{window.location.origin}/api/standings")
+                    </code>
+                  </li>
+                  <li>
+                    Google Sheets refreshes this about every hour; a Google Apps Script timer can fetch it
+                    every minute without changing the website.
+                  </li>
+                </ol>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
-              <button
-                type="button"
-                id="btn-export-csv"
-                onClick={handleExportCsv}
-                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-blue-500/50 transition-all flex items-center justify-between text-left group"
-              >
-                <div>
-                  <span className="font-bold text-white text-sm group-hover:text-blue-300">
-                    Export Matches & Scores (.CSV)
-                  </span>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Download complete 30-match fixture list and scores ready for Excel / Google Sheets
-                  </p>
-                </div>
-                <Download className="w-5 h-5 text-blue-400 shrink-0 ml-3" />
-              </button>
-
-              <button
-                type="button"
-                id="btn-export-json"
-                onClick={handleExportJson}
-                className="p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-blue-500/50 transition-all flex items-center justify-between text-left group"
-              >
-                <div>
-                  <span className="font-bold text-white text-sm group-hover:text-zinc-400">
-                    Export Full Tournament Backup (.JSON)
-                  </span>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Complete state including teams, groups, courts, settings, and calculated standings
-                  </p>
-                </div>
-                <Download className="w-5 h-5 text-zinc-400 shrink-0 ml-3" />
-              </button>
-            </div>
-
-            {/* Google Sheets Live Sync Guide */}
-            <div className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-3 mt-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-lime-400">
-                How to Connect to Google Sheets Live:
-              </h4>
-              <ol className="text-xs text-slate-300 space-y-2 list-decimal list-inside leading-relaxed">
-                <li>Open your Google Sheet and select cell A1.</li>
-                <li>
-                  Enter standard Google Sheets formula to pull matches in real time:{' '}
-                  <code className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-lime-400 font-mono">
-                    =IMPORTDATA("{window.location.origin}/api/matches")
-                  </code>
-                </li>
-                <li>
-                  To import standings directly:{' '}
-                  <code className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-lime-400 font-mono">
-                    =IMPORTDATA("{window.location.origin}/api/standings")
-                  </code>
-                </li>
-                <li>
-                  Google Sheets refreshes automatically every hour, or you can use Google Apps Script to
-                  fetch scores on a 1-minute timer without altering the website!
-                </li>
-              </ol>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 6: QR CODE POSTER */}
-      {activeSubTab === 'qr' && (
-        <div className="max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-2xl">
-          <div className="w-12 h-12 rounded-2xl bg-lime-400/20 text-lime-400 flex items-center justify-center mx-auto">
-            <QrCode className="w-6 h-6" />
-          </div>
-
-          <div>
-            <h3 className="text-xl font-display font-bold text-white">Public Results QR Code</h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Print this QR code on tournament banners and posters so spectators and players can scan
-              and view live group standings on their smartphones.
-            </p>
-          </div>
-
-          {/* QR Canvas render */}
-          {qrDataUrl && (
-            <div className="p-4 bg-white rounded-2xl inline-block shadow-inner">
-              <img
-                src={qrDataUrl}
-                alt="Tournament Live Results QR Code"
-                className="w-56 h-56 mx-auto rounded-lg"
-              />
-            </div>
+            </SectionCard>
           )}
 
-          <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-400 flex items-center justify-between gap-2">
-            <span className="truncate font-mono">{`${window.location.origin}/results`}</span>
-            <button
-              onClick={handleCopyLink}
-              className="text-lime-400 hover:text-lime-300 font-semibold flex items-center gap-1 shrink-0"
-            >
-              <Copy className="w-3.5 h-3.5" />
-              <span>{copiedLink ? 'Copied!' : 'Copy'}</span>
-            </button>
-          </div>
+          {/* TAB: QR CODE POSTER */}
+          {activeSubTab === 'qr' && (
+            <SectionCard title="QR poster" strip="Print it on banners so spectators open the live results">
+              <div className="max-w-sm mx-auto text-center space-y-4">
+                {qrDataUrl && (
+                  <div className="p-4 bg-white rounded-3xl border border-slate-200 shadow-md inline-block">
+                    <img
+                      src={qrDataUrl}
+                      alt="Tournament Live Results QR Code"
+                      className="w-56 h-56 mx-auto rounded-lg"
+                    />
+                  </div>
+                )}
 
-          {qrDataUrl && (
-            <a
-              href={qrDataUrl}
-              download="cpa_padel_tournament_qr.png"
-              className="w-full py-3 px-4 rounded-xl font-bold text-sm bg-lime-400 hover:bg-lime-300 text-slate-950 shadow-lg shadow-lime-500/20 transition-all flex items-center justify-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download High-Res QR Code</span>
-            </a>
-          )}
-        </div>
-      )}
+                <div className="p-2 pl-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs flex items-center justify-between gap-2">
+                  <span className="truncate font-mono font-bold text-slate-600">{`${window.location.origin}/results`}</span>
+                  <button type="button" onClick={handleCopyLink} className={smallOutlineButton}>
+                    <Copy className="w-3.5 h-3.5" />
+                    {copiedLink ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
 
-      {/* MATCH EDITING MODAL */}
-      {editingMatch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-150">
-          <form
-            onSubmit={handleSaveMatchDetails}
-            className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-4"
-          >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-base font-bold text-white font-display">
-                Edit Match #{editingMatch.matchNumber} ({editingMatch.group?.name})
-              </h3>
-              <button
-                type="button"
-                onClick={() => setEditingMatch(null)}
-                className="text-slate-400 hover:text-white"
-              >
-                &times;
-              </button>
-            </div>
-
-            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-sm font-bold text-center text-white">
-              {pairLabel(editingMatch.team1, 'TBD')} vs {pairLabel(editingMatch.team2, 'TBD')}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Court Assignment
-                </label>
-                <select
-                  value={editingMatch.courtId || ''}
-                  onChange={(e) =>
-                    setEditingMatch({ ...editingMatch, courtId: e.target.value || null })
-                  }
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-lime-400"
-                >
-                  <option value="">Unassigned</option>
-                  {courts.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Scheduled Time
-                </label>
-                <input
-                  type="text"
-                  value={editingMatch.scheduledTime}
-                  onChange={(e) =>
-                    setEditingMatch({ ...editingMatch, scheduledTime: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-lime-400"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Status</label>
-                <select
-                  value={editingMatch.status}
-                  onChange={(e) =>
-                    setEditingMatch({ ...editingMatch, status: e.target.value as any })
-                  }
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-lime-400"
-                >
-                  <option value="scheduled">Scheduled</option>
-                  <option value="ready">Ready</option>
-                  <option value="live">Live</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  {pairLabel(editingMatch.team1, 'Pair 1')} Games (e.g. 6)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="6"
-                  value={editingMatch.team1Score ?? ''}
-                  onChange={(e) =>
-                    setEditingMatch({
-                      ...editingMatch,
-                      team1Score: e.target.value === '' ? null : Number(e.target.value),
-                    })
-                  }
-                  placeholder="e.g. 6"
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-lime-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  {pairLabel(editingMatch.team2, 'Pair 2')} Games (e.g. 4)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="6"
-                  value={editingMatch.team2Score ?? ''}
-                  onChange={(e) =>
-                    setEditingMatch({
-                      ...editingMatch,
-                      team2Score: e.target.value === '' ? null : Number(e.target.value),
-                    })
-                  }
-                  placeholder="e.g. 4"
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-lime-400"
-                />
-              </div>
-            </div>
-
-            {/* Walkover (bylaw §6): 5-minute grace period expired */}
-            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-bold text-slate-300">Walkover (W/O)</span>
-                {editingMatch.walkover && (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-black uppercase">
-                    {editingMatch.walkover === 'both'
-                      ? 'Both absent'
-                      : `W/O to ${pairLabel(
-                          editingMatch.walkover === 'team1' ? editingMatch.team1 : editingMatch.team2,
-                          'team'
-                        )}`}
-                  </span>
+                {qrDataUrl && (
+                  <a
+                    href={qrDataUrl}
+                    download="cpa_padel_tournament_qr.png"
+                    className={`${primaryButton} w-full min-h-12`}
+                  >
+                    <Download className="w-4 h-4" />
+                    Download QR code
+                  </a>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500">
-                Which team did not come? A walkover counts as a 6-0 win for the team that came.
-              </p>
-              {renderAbsentChoices(editingMatch)}
-            </div>
-
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
-              <button
-                type="button"
-                onClick={() => setEditingMatch(null)}
-                className="px-4 py-2 text-xs font-semibold bg-slate-800 text-slate-300 rounded-xl"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2 text-xs font-bold bg-lime-400 text-slate-950 rounded-xl shadow-md"
-              >
-                Save Changes
-              </button>
-            </div>
-          </form>
+            </SectionCard>
+          )}
         </div>
-      )}
+      </div>
 
-      {/* TEAM ABSENT / WALKOVER DIALOG (bylaw §6) */}
-      {absentMatch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div>
-                <h3 className="text-base font-bold text-white font-display">Team did not come</h3>
-                <p className="text-[11px] text-slate-400">
-                  Match #{absentMatch.matchNumber} · {absentMatch.group?.name || 'Knockout'} ·{' '}
-                  {absentMatch.scheduledTime}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAbsentMatch(null)}
-                className="text-slate-400 hover:text-white text-lg"
-              >
-                &times;
-              </button>
-            </div>
-            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-sm font-bold text-center text-white">
-              {pairLabel(absentMatch.team1, 'TBD')} vs {pairLabel(absentMatch.team2, 'TBD')}
-            </div>
-            <p className="text-xs text-slate-400">
-              Bylaw §6: after the 5-minute grace period, the team that came wins by walkover (6-0).
-            </p>
-            {renderAbsentChoices(absentMatch)}
+      {/* MATCH EDITING DIALOG */}
+      {editingMatch && (
+        <AdminDialog
+          title={`Edit match #${editingMatch.matchNumber}`}
+          subtitle={`${adminStageLabel(editingMatch)} · ${editingMatch.court?.name || 'No court'} · ${editingMatch.scheduledTime}`}
+          onClose={() => setEditingMatch(null)}
+          onSubmit={handleSaveMatchDetails}
+        >
+          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold text-center text-[#0A0A0F]">
+            {pairLabel(editingMatch.team1, 'TBD')} <span className="font-mono text-xs text-slate-400 mx-1">vs</span>{' '}
+            {pairLabel(editingMatch.team2, 'TBD')}
           </div>
-        </div>
-      )}
 
-      {/* TEAM EDIT / ADD MODAL */}
-      {editingTeam && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-150">
-          <form
-            onSubmit={handleSaveTeam}
-            className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl space-y-4"
-          >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-base font-bold text-white font-display">
-                {editingTeam.id ? 'Edit Team' : 'Add New Team'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setEditingTeam(null)}
-                className="text-slate-400 hover:text-white"
-              >
-                &times;
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Player 1</label>
-                <input
-                  type="text"
-                  value={editingTeam.player1 || ''}
-                  onChange={(e) => setEditingTeam({ ...editingTeam, player1: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-lime-400"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Player 2</label>
-                <input
-                  type="text"
-                  value={editingTeam.player2 || ''}
-                  onChange={(e) => setEditingTeam({ ...editingTeam, player2: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-lime-400"
-                />
-              </div>
-            </div>
-
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Group Assignment
-              </label>
+              <label className={fieldLabel} htmlFor="edit-match-court">Court</label>
               <select
-                value={editingTeam.groupId || groups[0]?.id}
-                onChange={(e) => setEditingTeam({ ...editingTeam, groupId: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-lime-400"
+                id="edit-match-court"
+                value={editingMatch.courtId || ''}
+                onChange={(e) => setEditingMatch({ ...editingMatch, courtId: e.target.value || null })}
+                className={fieldInput}
               >
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
+                <option value="">Unassigned</option>
+                {courts.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
                   </option>
                 ))}
               </select>
             </div>
-
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
-              <button
-                type="button"
-                onClick={() => setEditingTeam(null)}
-                className="px-4 py-2 text-xs font-semibold bg-slate-800 text-slate-300 rounded-xl"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2 text-xs font-bold bg-lime-400 text-slate-950 rounded-xl shadow-md"
-              >
-                Save Team
-              </button>
+            <div>
+              <label className={fieldLabel} htmlFor="edit-match-time">Scheduled time</label>
+              <input
+                id="edit-match-time"
+                type="text"
+                value={editingMatch.scheduledTime}
+                onChange={(e) => setEditingMatch({ ...editingMatch, scheduledTime: e.target.value })}
+                className={fieldInput}
+              />
             </div>
-          </form>
+          </div>
+
+          <div>
+            <label className={fieldLabel} htmlFor="edit-match-status">Status</label>
+            <select
+              id="edit-match-status"
+              value={editingMatch.status}
+              onChange={(e) => setEditingMatch({ ...editingMatch, status: e.target.value as any })}
+              className={fieldInput}
+            >
+              <option value="scheduled">Scheduled</option>
+              <option value="ready">Ready</option>
+              <option value="live">Live</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="min-w-0">
+              <label className={`${fieldLabel} truncate`} htmlFor="edit-match-score1">
+                {pairLabel(editingMatch.team1, 'Pair 1')}
+              </label>
+              <input
+                id="edit-match-score1"
+                type="number"
+                min="0"
+                max="6"
+                value={editingMatch.team1Score ?? ''}
+                onChange={(e) =>
+                  setEditingMatch({
+                    ...editingMatch,
+                    team1Score: e.target.value === '' ? null : Number(e.target.value),
+                  })
+                }
+                placeholder="Games, e.g. 6"
+                className={fieldInput}
+              />
+            </div>
+            <div className="min-w-0">
+              <label className={`${fieldLabel} truncate`} htmlFor="edit-match-score2">
+                {pairLabel(editingMatch.team2, 'Pair 2')}
+              </label>
+              <input
+                id="edit-match-score2"
+                type="number"
+                min="0"
+                max="6"
+                value={editingMatch.team2Score ?? ''}
+                onChange={(e) =>
+                  setEditingMatch({
+                    ...editingMatch,
+                    team2Score: e.target.value === '' ? null : Number(e.target.value),
+                  })
+                }
+                placeholder="Games, e.g. 4"
+                className={fieldInput}
+              />
+            </div>
+          </div>
+
+          {/* Walkover (bylaw §6): 5-minute grace period expired */}
+          <div className="rounded-2xl border border-slate-200 p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className={`${fieldLabel} mb-0`}>Walkover (W/O)</span>
+              {editingMatch.walkover && (
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-mono font-black uppercase tracking-wider">
+                  {editingMatch.walkover === 'both'
+                    ? 'Both absent'
+                    : `W/O to ${pairLabel(
+                        editingMatch.walkover === 'team1' ? editingMatch.team1 : editingMatch.team2,
+                        'team'
+                      )}`}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500">
+              Which team did not come? A walkover counts as a 6-0 win for the team that came.
+            </p>
+            {renderAbsentChoices(editingMatch)}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={() => setEditingMatch(null)} className={outlineButton}>
+              Cancel
+            </button>
+            <button type="submit" className={primaryButton}>
+              Save changes
+            </button>
+          </div>
+        </AdminDialog>
+      )}
+
+      {/* TEAM ABSENT / WALKOVER DIALOG (bylaw §6) */}
+      {absentMatch && (
+        <AdminDialog
+          title="Team did not come"
+          subtitle={`Match #${absentMatch.matchNumber} · ${absentMatch.group?.name || adminStageLabel(absentMatch)} · ${absentMatch.scheduledTime}`}
+          onClose={() => setAbsentMatch(null)}
+          maxWidth="max-w-md"
+        >
+          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-sm font-bold text-center text-[#0A0A0F]">
+            {pairLabel(absentMatch.team1, 'TBD')} <span className="font-mono text-xs text-slate-400 mx-1">vs</span>{' '}
+            {pairLabel(absentMatch.team2, 'TBD')}
+          </div>
+          <p className="text-sm text-slate-600">
+            Bylaw §6: after the 5-minute grace period, the team that came wins by walkover (6-0).
+          </p>
+          {renderAbsentChoices(absentMatch)}
+        </AdminDialog>
+      )}
+
+      {/* TEAM EDIT / ADD DIALOG */}
+      {editingTeam && (
+        <AdminDialog
+          title={editingTeam.id ? 'Edit team' : 'Add team'}
+          onClose={() => setEditingTeam(null)}
+          onSubmit={handleSaveTeam}
+          maxWidth="max-w-md"
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={fieldLabel} htmlFor="edit-team-p1">Player 1</label>
+              <input
+                id="edit-team-p1"
+                type="text"
+                value={editingTeam.player1 || ''}
+                onChange={(e) => setEditingTeam({ ...editingTeam, player1: e.target.value })}
+                className={fieldInput}
+              />
+            </div>
+            <div>
+              <label className={fieldLabel} htmlFor="edit-team-p2">Player 2</label>
+              <input
+                id="edit-team-p2"
+                type="text"
+                value={editingTeam.player2 || ''}
+                onChange={(e) => setEditingTeam({ ...editingTeam, player2: e.target.value })}
+                className={fieldInput}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={fieldLabel} htmlFor="edit-team-group">Group</label>
+            <select
+              id="edit-team-group"
+              value={editingTeam.groupId || groups[0]?.id}
+              onChange={(e) => setEditingTeam({ ...editingTeam, groupId: e.target.value })}
+              className={fieldInput}
+            >
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={() => setEditingTeam(null)} className={outlineButton}>
+              Cancel
+            </button>
+            <button type="submit" className={primaryButton}>
+              Save team
+            </button>
+          </div>
+        </AdminDialog>
+      )}
+
+      {/* Feedback toast: fixed, so it shows wherever the page is scrolled and above dialogs */}
+      {feedbackMessage && (
+        <div
+          id="admin-alert-banner"
+          role={feedbackMessage.type === 'error' ? 'alert' : 'status'}
+          className={`fixed z-[60] bottom-4 inset-x-4 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[26rem] rounded-2xl bg-white border-2 shadow-2xl px-4 py-3 flex items-start gap-3 ${
+            feedbackMessage.type === 'success' ? 'border-blue-300' : 'border-rose-400'
+          }`}
+        >
+          {feedbackMessage.type === 'success' ? (
+            <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+          ) : (
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+          )}
+          <p
+            className={`flex-1 min-w-0 text-sm font-semibold ${
+              feedbackMessage.type === 'success' ? 'text-blue-900' : 'text-rose-800'
+            }`}
+          >
+            {feedbackMessage.text}
+          </p>
+          <button
+            type="button"
+            onClick={() => setFeedbackMessage(null)}
+            aria-label="Dismiss message"
+            className="shrink-0 w-8 h-8 -mr-1.5 -my-0.5 rounded-full text-slate-500 hover:bg-slate-100 inline-flex items-center justify-center cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
     </div>

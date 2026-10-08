@@ -7,6 +7,7 @@ import {
   applyScoreEventBatch,
 } from './scoringAuthority';
 import { ScoreEvent, ScoreEventResult } from '../src/scoring/eventTypes';
+import { finalScoreError } from '../src/scoring/finalScore';
 import {
   DEFAULT_SETTINGS,
   INITIAL_GROUPS,
@@ -567,9 +568,16 @@ class TournamentStore {
   public updateMatch(id: string, updates: Partial<Match>): Match | null {
     const idx = this.state.matches.findIndex((m) => m.id === id);
     if (idx === -1) return null;
-    this.state.matches[idx] = { ...this.state.matches[idx], ...updates };
+    const match = { ...this.state.matches[idx], ...updates };
+    this.state.matches[idx] = match;
+    // A finished knockout result entered here (admin match edit) moves the
+    // winner and loser on exactly like submitScore(). A level score has no
+    // winner, so nobody moves.
+    if (match.status === 'completed' && match.team1Score !== match.team2Score) {
+      this.advanceKnockoutForMatch(id);
+    }
     this.notifyUpdates();
-    return this.state.matches[idx];
+    return match;
   }
 
   public submitScore(params: {
@@ -612,13 +620,39 @@ class TournamentStore {
       return { success: false, error: 'Padel matches cannot end in a draw. A winner is required.' };
     }
 
+    // First to 6 games, no tiebreak: only 6-0 ... 6-5 either way round.
+    const formatError = finalScoreError(team1Score, team2Score);
+    if (formatError) {
+      return { success: false, error: formatError };
+    }
+
+    const completedAt = new Date().toISOString();
     match.team1Score = team1Score;
     match.team2Score = team2Score;
     match.status = 'completed';
-    match.completedAt = new Date().toISOString();
+    match.completedAt = completedAt;
+    match.matchVersion = (match.matchVersion ?? 0) + 1;
+    // A typed result replaces any earlier walkover, and its "submitted by"
+    // marker, so undoing a team's absence never clears this result.
+    delete match.walkover;
     if (submittedBy) match.submittedBy = submittedBy;
-    if (padelState) match.padelState = padelState;
-    if (scoreSummary) match.scoreSummary = scoreSummary;
+    else delete match.submittedBy;
+    // Standings read games from padelState, so a result entered without one
+    // (or correcting an earlier one) must not leave the old games behind.
+    match.padelState = padelState || {
+      matchId: match.id,
+      team1Games: team1Score,
+      team2Games: team2Score,
+      team1Points: 0,
+      team2Points: 0,
+      isGoldenPoint: false,
+      isMatchOver: true,
+      winnerTeamId: team1Score > team2Score ? 'team1' : 'team2',
+      lastEventMessage: `Match Completed (${team1Score} - ${team2Score})`,
+      history: [],
+      completedAt,
+    };
+    match.scoreSummary = scoreSummary || `${team1Score} - ${team2Score}`;
 
     // Knockout Winner & Loser Advancement
     if (match.stage === 'knockout') {
