@@ -675,6 +675,16 @@ async function startServer() {
     res.json({ success: true, matches: getEnrichedMatchesList(result.matches!) });
   });
 
+  // Semi-final pairings drawn by lot: { pairs: [[t1, t2], [t3, t4]] } as SF1, SF2.
+  app.post('/api/admin/knockout/sf-draw', requireAdmin, (req: Request, res: Response) => {
+    const result = tournamentStore.setSemiFinalDraw(req.body?.pairs);
+    if (result.error) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
+    res.json({ success: true, matches: getEnrichedMatchesList(result.matches!) });
+  });
+
   app.post('/api/knockout/seed-from-standings', requireAdmin, (req: Request, res: Response) => {
     const updatedMatches = tournamentStore.seedKnockoutFromStandings();
     res.json({ success: true, matches: getEnrichedMatchesList(updatedMatches) });

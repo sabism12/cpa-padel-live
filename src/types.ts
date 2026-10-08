@@ -66,6 +66,11 @@ export interface Match {
    * 'both' when neither team reported (both teams take a loss, no games).
    */
   walkover?: 'team1' | 'team2' | 'both';
+  /**
+   * Semi-final pairing entered by the admin from the draw by lot. Until then
+   * the semi-finals stay empty: quarter-final winners have no fixed slot.
+   */
+  drawnByLot?: boolean;
 }
 
 /**

@@ -102,13 +102,15 @@ export const KnockoutView: React.FC<KnockoutViewProps> = ({
   const knockoutLabel = (m?: EnrichedMatch) =>
     !m ? '' : m.round === 'qf' ? `QF${m.bracketPosition}` : m.round === 'sf' ? `SF${m.bracketPosition}` : m.round === 'final' ? 'Final' : '3rd place';
 
-  // Where an empty slot's team will come from ("Winner QF 1", "Loser SF 2").
+  // Where an empty slot's team will come from ("Drawn by lot", "Winner SF1",
+  // "Loser SF2"). Quarter-final and semi-final pairings are drawn by lot.
   const slotSource = (m: EnrichedMatch, slot: 'team1' | 'team2'): string => {
+    if (m.round === 'qf' || m.round === 'sf') return 'Drawn by lot';
     const winnerFrom = knockoutMatches.find((x) => x.nextMatchId === m.id && x.nextMatchSlot === slot);
     if (winnerFrom) return `Winner ${knockoutLabel(winnerFrom)}`;
     const loserFrom = knockoutMatches.find((x) => x.loserNextMatchId === m.id && x.loserNextMatchSlot === slot);
     if (loserFrom) return `Loser ${knockoutLabel(loserFrom)}`;
-    return m.round === 'qf' ? 'Drawn by lot' : 'To be decided';
+    return 'To be decided';
   };
 
   const firstName = (name?: string) => (name || '').trim().split(/\s+/)[0] || '';

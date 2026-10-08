@@ -449,7 +449,12 @@ class TournamentStore {
 
     if (match.nextMatchId && match.nextMatchSlot) {
       const nextMatch = this.state.matches.find((m) => m.id === match.nextMatchId);
-      if (nextMatch) {
+      if (nextMatch?.drawnByLot) {
+        this.replaceDrawnTeam(nextMatch.round, loserId, winnerId);
+      } else if (nextMatch?.round === 'sf') {
+        // Semi-final pairings are drawn by lot: quarter-final winners wait
+        // for the admin's semi-final draw instead of a fixed bracket slot.
+      } else if (nextMatch) {
         if (match.nextMatchSlot === 'team1') nextMatch.team1Id = winnerId;
         else if (match.nextMatchSlot === 'team2') nextMatch.team2Id = winnerId;
       }
@@ -462,6 +467,43 @@ class TournamentStore {
         else if (match.loserNextMatchSlot === 'team2') loserNextMatch.team2Id = loserId;
       }
     }
+  }
+
+  /**
+   * Rounds drawn by lot have no fixed slot for each winner. When a corrected
+   * result changes the winner, the new winner takes the place the old winner
+   * (now the loser) was drawn into. An unchanged winner changes nothing.
+   */
+  private replaceDrawnTeam(round: Match['round'], outId: string, inId: string) {
+    for (const m of this.state.matches) {
+      if (m.stage !== 'knockout' || m.round !== round || !m.drawnByLot) continue;
+      if (m.team1Id === outId) m.team1Id = inId;
+      if (m.team2Id === outId) m.team2Id = inId;
+    }
+  }
+
+  /** The winning team of a finished knockout match, or null if it has none. */
+  private knockoutWinner(match: Match): string | null {
+    if (match.status !== 'completed' || match.walkover === 'both') return null;
+    if (match.team1Score === null || match.team2Score === null || match.team1Score === match.team2Score) {
+      return null;
+    }
+    const winnerId = match.team1Score > match.team2Score ? match.team1Id : match.team2Id;
+    return winnerId || null;
+  }
+
+  /** Clear a knockout match's result and send it back to scheduled. */
+  private clearMatchResult(m: Match) {
+    m.team1Score = null;
+    m.team2Score = null;
+    m.status = 'scheduled';
+    delete m.padelState;
+    delete m.scoreSummary;
+    delete m.completedAt;
+    delete m.submittedBy;
+    delete m.seqLog;
+    delete m.walkover;
+    m.matchVersion = (m.matchVersion ?? 0) + 1;
   }
 
   /** Persist and broadcast after one or more score events changed matches. */
@@ -655,26 +697,7 @@ class TournamentStore {
     match.scoreSummary = scoreSummary || `${team1Score} - ${team2Score}`;
 
     // Knockout Winner & Loser Advancement
-    if (match.stage === 'knockout') {
-      const winnerId = team1Score > team2Score ? match.team1Id : match.team2Id;
-      const loserId = team1Score > team2Score ? match.team2Id : match.team1Id;
-
-      if (match.nextMatchId && match.nextMatchSlot) {
-        const nextMatch = this.state.matches.find((m) => m.id === match.nextMatchId);
-        if (nextMatch) {
-          if (match.nextMatchSlot === 'team1') nextMatch.team1Id = winnerId;
-          else if (match.nextMatchSlot === 'team2') nextMatch.team2Id = winnerId;
-        }
-      }
-
-      if (match.loserNextMatchId && match.loserNextMatchSlot) {
-        const loserNextMatch = this.state.matches.find((m) => m.id === match.loserNextMatchId);
-        if (loserNextMatch) {
-          if (match.loserNextMatchSlot === 'team1') loserNextMatch.team1Id = loserId;
-          else if (match.loserNextMatchSlot === 'team2') loserNextMatch.team2Id = loserId;
-        }
-      }
-    }
+    this.advanceKnockoutForMatch(match.id);
 
     // Find next match for this court
     let nextMatch: Match | null = null;
@@ -731,6 +754,7 @@ class TournamentStore {
       if (match.stage === 'knockout' || match.groupId === 'knockout') {
         match.team1Id = '';
         match.team2Id = '';
+        delete match.drawnByLot;
         knockoutReset++;
       }
 
@@ -1074,9 +1098,9 @@ class TournamentStore {
 
   /**
    * Quarter-final pairings drawn by lot at the venue. `pairs` holds the four
-   * drawn matches in bracket order (QF1..QF4): QF1/QF2 winners meet in SF1,
-   * QF3/QF4 winners in SF2. Only allowed before any quarter-final has started.
-   * Semi-final, 3rd-place and final slots are cleared until QF results arrive.
+   * drawn matches as QF1..QF4; their winners then go into the semi-final draw
+   * (setSemiFinalDraw). Only allowed before any quarter-final has started.
+   * Semi-final, 3rd-place and final slots are cleared until new results arrive.
    */
   public setQuarterFinalDraw(pairs: [string, string][]): { error?: string; matches?: Match[] } {
     if (!Array.isArray(pairs) || pairs.length !== 4) {
@@ -1108,50 +1132,103 @@ class TournamentStore {
       };
     }
 
-    const isAbsent = (id: string) => !!this.state.teams.find((t) => t.id === id)?.withdrawn;
-    const clearResult = (m: Match) => {
-      m.team1Score = null;
-      m.team2Score = null;
-      m.status = 'scheduled';
-      delete m.padelState;
-      delete m.scoreSummary;
-      delete m.completedAt;
-      delete m.submittedBy;
-      delete m.seqLog;
-      delete m.walkover;
-      m.matchVersion = (m.matchVersion ?? 0) + 1;
-    };
-
     qfs.forEach((m, i) => {
-      clearResult(m);
+      this.clearMatchResult(m);
       m.team1Id = pairs[i][0];
       m.team2Id = pairs[i][1];
     });
 
-    // Later rounds wait for the new quarter-final results.
+    // Later rounds wait for the new quarter-final results (and any semi-final
+    // draw belongs to the old quarter-finals).
     for (const m of this.state.matches) {
       if (m.stage === 'knockout' && m.round !== 'qf') {
-        clearResult(m);
+        this.clearMatchResult(m);
+        m.team1Id = '';
+        m.team2Id = '';
+        delete m.drawnByLot;
+      }
+    }
+
+    this.applyAbsenceWalkovers(qfs);
+    this.notifyUpdates();
+    return { matches: qfs };
+  }
+
+  /**
+   * Semi-final pairings drawn by lot at the venue (quarter-final winners do
+   * not move into a semi-final on their own). `pairs` holds SF1 and SF2.
+   * Every quarter-final must have a winner,
+   * only those 4 winners can be drawn, and no semi-final may have started.
+   * The final and 3rd-place match are cleared until the new semi-final
+   * results arrive.
+   */
+  public setSemiFinalDraw(pairs: [string, string][]): { error?: string; matches?: Match[] } {
+    if (!Array.isArray(pairs) || pairs.length !== 2 || pairs.some((p) => !Array.isArray(p) || p.length !== 2)) {
+      return { error: 'Exactly 2 semi-final pairings are required.' };
+    }
+    const ids = pairs.flat();
+    const known = new Set(this.state.teams.map((t) => t.id));
+    if (ids.some((id) => typeof id !== 'string' || !known.has(id))) {
+      return { error: 'Every semi-final slot needs a valid team.' };
+    }
+    if (new Set(ids).size !== 4) {
+      return { error: 'Each team can only appear once in the semi-final draw.' };
+    }
+
+    const find = (round: Match['round'], n: number) =>
+      this.state.matches.find((m) => m.stage === 'knockout' && m.round === round && m.bracketPosition === n);
+    const qfs = [1, 2, 3, 4].map((n) => find('qf', n));
+    const sfs = [1, 2].map((n) => find('sf', n));
+    if (qfs.some((m) => !m) || sfs.some((m) => !m)) {
+      return { error: 'Knockout bracket is missing quarter-final or semi-final matches.' };
+    }
+
+    const winners = qfs.map((m) => this.knockoutWinner(m!));
+    if (winners.some((w) => !w)) {
+      return { error: 'Every quarter-final needs a result before the semi-final draw.' };
+    }
+    if (ids.some((id) => !winners.includes(id))) {
+      return { error: 'Only the 4 quarter-final winners can be drawn into the semi-finals.' };
+    }
+
+    const started = sfs.find((m) => m!.status === 'live' || (m!.status === 'completed' && !m!.walkover));
+    if (started) {
+      return {
+        error: `Semi-final #${started.matchNumber} has already started. Reset its score before changing the draw.`,
+      };
+    }
+
+    sfs.forEach((m, i) => {
+      this.clearMatchResult(m!);
+      m!.team1Id = pairs[i][0];
+      m!.team2Id = pairs[i][1];
+      m!.drawnByLot = true;
+    });
+
+    // The final and 3rd-place match wait for the new semi-final results.
+    for (const m of this.state.matches) {
+      if (m.stage === 'knockout' && (m.round === 'final' || m.round === '3rd')) {
+        this.clearMatchResult(m);
         m.team1Id = '';
         m.team2Id = '';
       }
     }
 
-    // A team already marked as not coming loses its quarter-final by walkover.
-    for (const m of qfs) {
+    this.applyAbsenceWalkovers(sfs as Match[]);
+    this.notifyUpdates();
+    return { matches: sfs as Match[] };
+  }
+
+  /** A team already marked as not coming loses these drawn matches by walkover. */
+  private applyAbsenceWalkovers(drawn: Match[]) {
+    const isAbsent = (id: string) => !!this.state.teams.find((t) => t.id === id)?.withdrawn;
+    for (const m of drawn) {
       const absent1 = isAbsent(m.team1Id);
       const absent2 = isAbsent(m.team2Id);
       if (absent1 || absent2) {
-        this.applyWalkover(
-          m,
-          absent1 && absent2 ? 'both' : absent1 ? 'team2' : 'team1',
-          WALKOVER_BY_ABSENCE
-        );
+        this.applyWalkover(m, absent1 && absent2 ? 'both' : absent1 ? 'team2' : 'team1', WALKOVER_BY_ABSENCE);
       }
     }
-
-    this.notifyUpdates();
-    return { matches: qfs };
   }
 
   public seedKnockoutFromStandings(): Match[] {

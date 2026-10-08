@@ -183,9 +183,15 @@ export const QuickResultsPanel: React.FC<QuickResultsPanelProps> = ({
     // changes who is in that next match, so ask first.
     if (isKnockout(m) && m.status === 'completed' && m.walkover !== 'both') {
       const winnerChanged = (m.team1Score ?? 0) > (m.team2Score ?? 0) !== (t1 > t2);
+      const oldWinnerId = (m.team1Score ?? 0) > (m.team2Score ?? 0) ? m.team1Id : m.team2Id;
+      // The next match by bracket, or wherever the old winner was drawn by lot.
       const started = matches.find(
         (x) =>
-          (x.id === m.nextMatchId || x.id === m.loserNextMatchId) &&
+          x.id !== m.id &&
+          isKnockout(x) &&
+          (x.id === m.nextMatchId ||
+            x.id === m.loserNextMatchId ||
+            (!!oldWinnerId && (x.team1Id === oldWinnerId || x.team2Id === oldWinnerId))) &&
           (x.status === 'live' || x.status === 'completed')
       );
       if (
@@ -373,7 +379,9 @@ export const QuickResultsPanel: React.FC<QuickResultsPanelProps> = ({
           ) : m.status === 'cancelled' ? (
             <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-500">Cancelled</span>
           ) : tbd ? (
-            <span className="text-xs italic text-slate-500 leading-snug">Waiting for earlier results</span>
+            <span className="text-xs italic text-slate-500 leading-snug">
+              {m.round === 'sf' ? 'Waiting for the semi-final draw' : 'Waiting for earlier results'}
+            </span>
           ) : (
             <>
               <span className="flex items-center justify-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono font-black uppercase tracking-wider bg-slate-200 text-slate-700 whitespace-nowrap">

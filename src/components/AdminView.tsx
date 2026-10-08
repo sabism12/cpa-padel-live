@@ -51,6 +51,7 @@ import {
   adminSetWalkover,
   adminSetTeamWithdrawn,
   adminSetQuarterFinalDraw,
+  adminSetSemiFinalDraw,
   adminRecordToss,
   adminClearTosses,
 } from '../api';
@@ -115,6 +116,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
   ]);
   const [savingQfDraw, setSavingQfDraw] = useState(false);
 
+  // Semi-final draw by lot: SF1, SF2 as team ids ('' = empty).
+  const [sfDraw, setSfDraw] = useState<string[][]>([
+    ['', ''],
+    ['', ''],
+  ]);
+  const [savingSfDraw, setSavingSfDraw] = useState(false);
+
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Reset all game scores (test before the match / start clean)
@@ -153,9 +161,27 @@ export const AdminView: React.FC<AdminViewProps> = ({
     .filter((row) => row.qualified)
     .sort((a, b) => (a.qualificationRank ?? 99) - (b.qualificationRank ?? 99));
 
+  const semiFinals = [1, 2].map((n) =>
+    matches.find((m) => m.stage === 'knockout' && m.round === 'sf' && m.bracketPosition === n)
+  );
+  const sfStarted = semiFinals.some(
+    (m) => m && (m.status === 'live' || (m.status === 'completed' && !m.walkover))
+  );
+  const sfDrawnByLot = semiFinals.some((m) => m?.drawnByLot);
+  /** Winner of each quarter-final in QF1..QF4 order ('' while it has none). */
+  const qfWinnerIds = quarterFinals.map((m) => {
+    if (!m || m.status !== 'completed' || m.walkover === 'both') return '';
+    if (m.team1Score === null || m.team2Score === null || m.team1Score === m.team2Score) return '';
+    return (m.team1Score > m.team2Score ? m.team1Id : m.team2Id) || '';
+  });
+  const sfDrawReady = qfWinnerIds.every(Boolean);
+  /** Every quarter-final is decided but the semi-final lots are not entered yet. */
+  const sfDrawDue = sfDrawReady && !sfDrawnByLot && !sfStarted;
+
   useEffect(() => {
     if (activeSubTab !== 'qfdraw') return;
     setQfDraw(quarterFinals.map((m) => [m?.team1Id || '', m?.team2Id || '']));
+    setSfDraw(semiFinals.map((m) => [m?.team1Id || '', m?.team2Id || '']));
     // Load once when the tab opens; later refreshes must not wipe an unsaved draw.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSubTab]);
@@ -449,6 +475,37 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }
   };
 
+  // Save the semi-final pairings drawn by lot (instead of the bracket order).
+  const handleSaveSfDraw = async () => {
+    const ids = sfDraw.flat();
+    if (ids.some((id) => !id)) {
+      showNotification('error', 'Fill all 4 semi-final slots first.');
+      return;
+    }
+    if (new Set(ids).size !== 4) {
+      showNotification('error', 'Each team can only appear once in the draw.');
+      return;
+    }
+    const summary = sfDraw
+      .map(
+        ([a, b], i) =>
+          `SF${i + 1}: ${pairLabel(teams.find((t) => t.id === a))} vs ${pairLabel(teams.find((t) => t.id === b))}`
+      )
+      .join('\n');
+    if (!window.confirm(`Save this semi-final draw?\n\n${summary}`)) return;
+
+    setSavingSfDraw(true);
+    try {
+      await adminSetSemiFinalDraw(session.token, sfDraw as [string, string][]);
+      showNotification('success', 'Semi-final draw saved. The knockout bracket is updated.');
+      onRefreshData();
+    } catch (err: any) {
+      showNotification('error', err.message || 'Failed to save the semi-final draw.');
+    } finally {
+      setSavingSfDraw(false);
+    }
+  };
+
   // Live toss (bylaw §4): the winner is placed above every other team in the tie.
   const handleTossWinner = async (winner: StandingsRow, tied: StandingsRow[]) => {
     const others = tied.filter((r) => r.teamId !== winner.teamId);
@@ -614,7 +671,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
           icon: Coins,
           badge: tieSets.length > 0 ? { value: tieSets.length, tone: 'alert' } : undefined,
         },
-        { id: 'qfdraw', label: 'QF draw', icon: Shuffle },
+        {
+          id: 'qfdraw',
+          label: 'Knockout draw',
+          icon: Shuffle,
+          badge: sfDrawDue ? { value: 1, tone: 'alert' } : undefined,
+        },
       ],
     },
     {
@@ -921,6 +983,19 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </button>
           )}
 
+          {/* Semi-final draw reminder once every quarter-final is decided */}
+          {sfDrawDue && (activeSubTab === 'matches' || activeSubTab === 'quick') && (
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('qfdraw')}
+              className="w-full text-left rounded-2xl bg-amber-50 border-2 border-amber-300 px-4 py-3 text-sm font-bold text-amber-900 flex items-center gap-3 shadow-md cursor-pointer hover:border-amber-400"
+            >
+              <Shuffle className="w-5 h-5 text-amber-600 shrink-0" />
+              <span className="flex-1">All 4 quarter-finals are done — enter the semi-final draw</span>
+              <span className="text-[11px] font-mono uppercase tracking-widest">Open →</span>
+            </button>
+          )}
+
           {/* TAB: QUICK RESULTS (final games typed from the paper score sheets) */}
           {activeSubTab === 'quick' && (
             <QuickResultsPanel
@@ -1110,12 +1185,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </SectionCard>
           )}
 
-          {/* TAB: QUARTER-FINAL DRAW BY LOT */}
+          {/* TAB: KNOCKOUT DRAWS BY LOT (quarter-finals, then semi-finals) */}
           {activeSubTab === 'qfdraw' && (
+            <>
             <SectionCard
               title="Quarter-final draw"
               aside={<BandLabel>By lot</BandLabel>}
-              strip="QF1 & QF2 winners → SF1 · QF3 & QF4 winners → SF2"
+              strip="The 4 winners go into the semi-final draw, also by lot"
             >
               <p className="text-sm text-slate-600 max-w-2xl">
                 The 8 qualified teams draw lots live at the venue. Enter the pairings here exactly as
@@ -1170,7 +1246,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         QF{qfIndex + 1}
                       </span>
                       <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-white/60">
-                        Winner → SF{qfIndex < 2 ? 1 : 2}
+                        Winner → SF draw
                       </span>
                     </div>
                     <div className="p-3 space-y-2">
@@ -1225,6 +1301,137 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </button>
               </div>
             </SectionCard>
+
+            <SectionCard
+              title="Semi-final draw"
+              aside={<BandLabel>{sfDrawnByLot ? 'Drawn ✓' : 'By lot'}</BandLabel>}
+              strip="SF winners → Final · SF losers → 3rd place"
+            >
+              <p className="text-sm text-slate-600 max-w-2xl">
+                The semi-finals are drawn by lot too. Once all 4 quarter-finals have a winner, draw the
+                lots and enter the pairings here. The semi-finals stay TBD until you save the draw.
+              </p>
+
+              {sfStarted ? (
+                <div className="rounded-2xl bg-white border-2 border-rose-400 px-4 py-3 text-sm font-semibold text-rose-800">
+                  A semi-final has already started, so the draw is locked. Reset that match's score to
+                  change the draw.
+                </div>
+              ) : (
+                !sfDrawReady && (
+                  <div className="rounded-2xl bg-amber-50 border-2 border-amber-300 px-4 py-3 text-sm font-semibold text-amber-900">
+                    The semi-final draw opens once all 4 quarter-finals have a winner (
+                    {qfWinnerIds.filter(Boolean).length} of 4 so far).
+                  </div>
+                )
+              )}
+
+              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-2.5">
+                <span className={fieldLabel}>Quarter-final winners ({qfWinnerIds.filter(Boolean).length})</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {qfWinnerIds.map((teamId, i) => {
+                    if (!teamId) {
+                      return (
+                        <span
+                          key={i}
+                          className="px-2.5 py-1 rounded-full text-xs font-semibold italic border border-dashed border-slate-300 text-slate-400"
+                        >
+                          Winner QF{i + 1}
+                        </span>
+                      );
+                    }
+                    const used = sfDraw.flat().includes(teamId);
+                    return (
+                      <span
+                        key={teamId}
+                        className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                          used
+                            ? 'bg-white text-slate-400 border-slate-200 line-through'
+                            : 'bg-[#CCFF00] text-[#0A0A0F] border-[#0A0A0F]/20'
+                        }`}
+                      >
+                        {pairLabel(teams.find((t) => t.id === teamId))}
+                        <span className="ml-1.5 text-[10px] font-mono font-bold opacity-60">QF{i + 1}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {sfDraw.map((pair, sfIndex) => (
+                  <div key={sfIndex} className="rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="px-4 py-2.5 bg-[#0A0A0F] flex items-center justify-between">
+                      <span className="text-2xl font-display font-semibold uppercase tracking-wide leading-none text-[#CCFF00]">
+                        SF{sfIndex + 1}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-white/60">
+                        Winner → Final
+                      </span>
+                    </div>
+                    <div className="p-3 space-y-2">
+                      {pair.map((teamId, slot) => (
+                        <select
+                          key={slot}
+                          value={teamId}
+                          disabled={!sfDrawReady || sfStarted}
+                          aria-label={`SF${sfIndex + 1} team ${slot + 1}`}
+                          onChange={(e) =>
+                            setSfDraw((current) =>
+                              current.map((p, i) =>
+                                i === sfIndex ? p.map((id, s) => (s === slot ? e.target.value : id)) : p
+                              )
+                            )
+                          }
+                          className={fieldInput}
+                        >
+                          <option value="">— pick team —</option>
+                          {qfWinnerIds.map((winnerId, i) => {
+                            if (!winnerId) return null;
+                            const takenElsewhere = winnerId !== teamId && sfDraw.flat().includes(winnerId);
+                            return (
+                              <option key={winnerId} value={winnerId} disabled={takenElsewhere}>
+                                {pairLabel(teams.find((t) => t.id === winnerId))} (QF{i + 1} winner)
+                                {takenElsewhere ? ' — already drawn' : ''}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleSaveSfDraw}
+                  disabled={!sfDrawReady || sfStarted || savingSfDraw}
+                  className={`${primaryButton} min-h-11 px-5`}
+                >
+                  {savingSfDraw ? 'Saving…' : 'Save semi-final draw'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSfDraw([[qfWinnerIds[0], qfWinnerIds[1]], [qfWinnerIds[2], qfWinnerIds[3]]])}
+                  disabled={!sfDrawReady || sfStarted || savingSfDraw}
+                  className={`${outlineButton} min-h-11`}
+                  title="Fill in QF1 v QF2 winners and QF3 v QF4 winners (if no lot is drawn)"
+                >
+                  Bracket order
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSfDraw([['', ''], ['', '']])}
+                  disabled={!sfDrawReady || sfStarted || savingSfDraw}
+                  className={`${outlineButton} min-h-11`}
+                >
+                  Clear form
+                </button>
+              </div>
+            </SectionCard>
+            </>
           )}
 
           {/* TAB: TEAMS */}

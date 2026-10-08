@@ -337,15 +337,14 @@ describe('quarter-final draw by lot', () => {
     }
   });
 
-  it('winners move to the semi-finals and the draw locks once a quarter-final is played', () => {
+  it('winners wait for the semi-final draw and the QF draw locks once a quarter-final is played', () => {
     const q = eight();
     const pairs: [string, string][] = [[q[0], q[1]], [q[2], q[3]], [q[4], q[5]], [q[6], q[7]]];
     store.setQuarterFinalDraw(pairs);
     store.submitScore({ matchId: 'match-ko-qf1', team1Score: 6, team2Score: 2, isAdminOverride: true });
     store.submitScore({ matchId: 'match-ko-qf2', team1Score: 3, team2Score: 6, isAdminOverride: true });
     const sf1 = store.state.matches.find((x: any) => x.id === 'match-ko-sf1');
-    assert.equal(sf1.team1Id, q[0], 'QF1 winner is SF1 team 1');
-    assert.equal(sf1.team2Id, q[3], 'QF2 winner is SF1 team 2');
+    assert.deepEqual([sf1.team1Id, sf1.team2Id], ['', ''], 'semi-finals are drawn by lot, not filled by bracket');
     assert.ok(store.setQuarterFinalDraw(pairs).error, 'draw is locked after play starts');
   });
 
@@ -464,6 +463,8 @@ describe('knockout advancement from typed results', () => {
       assert.equal(store.submitScore({ matchId: ko(id).id, team1Score: t1, team2Score: t2, isAdminOverride: true }).success, true);
 
     enter('qf1', 6, 4); enter('qf2', 5, 6); enter('qf3', 6, 0); enter('qf4', 3, 6);
+    assert.equal(ko('sf1').team1Id, '', 'semi-finals wait for the draw by lot');
+    assert.equal(store.setSemiFinalDraw([[q[0], q[3]], [q[4], q[7]]]).error, undefined);
     assert.deepEqual([ko('sf1').team1Id, ko('sf1').team2Id], [q[0], q[3]]);
     assert.deepEqual([ko('sf2').team1Id, ko('sf2').team2Id], [q[4], q[7]]);
 
@@ -481,6 +482,10 @@ describe('knockout advancement from typed results', () => {
     drawQuarterFinals();
     store.updateMatch(ko('qf1').id, { status: 'completed', team1Score: 6, team2Score: 3, walkover: undefined });
     store.updateMatch(ko('qf2').id, { status: 'completed', team1Score: 2, team2Score: 6, walkover: undefined });
+    store.updateMatch(ko('qf3').id, { status: 'completed', team1Score: 6, team2Score: 1, walkover: undefined });
+    store.updateMatch(ko('qf4').id, { status: 'completed', team1Score: 6, team2Score: 2, walkover: undefined });
+    assert.equal(ko('sf1').team1Id, '', 'semi-finals wait for the draw by lot');
+    assert.equal(store.setSemiFinalDraw([[q[0], q[3]], [q[4], q[6]]]).error, undefined);
     assert.deepEqual([ko('sf1').team1Id, ko('sf1').team2Id], [q[0], q[3]]);
 
     store.updateMatch(ko('sf1').id, { status: 'completed', team1Score: 4, team2Score: 6 });
@@ -490,6 +495,48 @@ describe('knockout advancement from typed results', () => {
     // Correcting the edit moves the right team instead.
     store.updateMatch(ko('qf2').id, { team1Score: 6, team2Score: 1 });
     assert.equal(ko('sf1').team2Id, q[2]);
+  });
+
+  it('semi-final draw by lot: only after every quarter-final, only the 4 winners', () => {
+    drawQuarterFinals();
+    const enter = (id: string, t1: number, t2: number) =>
+      store.submitScore({ matchId: ko(id).id, team1Score: t1, team2Score: t2, isAdminOverride: true });
+    enter('qf1', 6, 2); enter('qf2', 3, 6); enter('qf3', 6, 4);
+    // Winners so far: q[0], q[3], q[4]; QF4 (q[6] v q[7]) not played yet.
+    assert.ok(store.setSemiFinalDraw([[q[0], q[4]], [q[3], q[6]]]).error, 'QF4 has no result yet');
+
+    enter('qf4', 5, 6); // q[7] wins
+    assert.ok(store.setSemiFinalDraw([[q[0], q[4]], [q[3], q[1]]]).error, 'q[1] lost its quarter-final');
+    assert.ok(store.setSemiFinalDraw([[q[0], q[0]], [q[3], q[7]]]).error, 'duplicate team');
+    assert.ok(store.setSemiFinalDraw([[q[0], q[4]]] as any).error, 'only one pairing');
+  });
+
+  it('semi-final draw sets the drawn pairings, and results then reach the final and 3rd place', () => {
+    drawQuarterFinals();
+    const enter = (id: string, t1: number, t2: number) =>
+      store.submitScore({ matchId: ko(id).id, team1Score: t1, team2Score: t2, isAdminOverride: true });
+    enter('qf1', 6, 2); enter('qf2', 3, 6); enter('qf3', 6, 4); enter('qf4', 5, 6);
+    // Bracket order would be SF1 q[0] v q[3], SF2 q[4] v q[7]. The lot says otherwise:
+    assert.equal(store.setSemiFinalDraw([[q[0], q[4]], [q[3], q[7]]]).error, undefined);
+    assert.deepEqual([ko('sf1').team1Id, ko('sf1').team2Id], [q[0], q[4]]);
+    assert.deepEqual([ko('sf2').team1Id, ko('sf2').team2Id], [q[3], q[7]]);
+    assert.ok(ko('sf1').drawnByLot && ko('sf2').drawnByLot);
+    assert.equal(ko('final').team1Id, '', 'final waits for the semi-finals');
+
+    // A corrected QF3 (q[5] now wins) puts the new winner where q[4] was drawn,
+    // not into QF3's bracket slot in SF2.
+    enter('qf3', 4, 6);
+    assert.deepEqual([ko('sf1').team1Id, ko('sf1').team2Id], [q[0], q[5]]);
+    assert.deepEqual([ko('sf2').team1Id, ko('sf2').team2Id], [q[3], q[7]]);
+
+    enter('sf1', 6, 3); enter('sf2', 2, 6);
+    assert.deepEqual([ko('final').team1Id, ko('final').team2Id], [q[0], q[7]]);
+    assert.deepEqual([ko('3rd').team1Id, ko('3rd').team2Id], [q[5], q[3]]);
+
+    assert.ok(store.setSemiFinalDraw([[q[0], q[3]], [q[5], q[7]]]).error, 'locked once a semi-final is played');
+
+    store.resetAllMatchScores();
+    assert.ok(!ko('sf1').drawnByLot && !ko('sf2').drawnByLot, 'reset clears the draw');
   });
 
   it('admin match edit does not move anyone for an unfinished or level knockout score', () => {

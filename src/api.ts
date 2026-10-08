@@ -301,7 +301,7 @@ export async function adminImportData(token: string, payload: any) {
 
 /**
  * Quarter-final pairings drawn by lot at the venue, in QF1..QF4 order.
- * QF1/QF2 winners meet in SF1, QF3/QF4 winners in SF2.
+ * The 4 winners then go into the semi-final draw (also by lot).
  */
 export async function adminSetQuarterFinalDraw(token: string, pairs: [string, string][]) {
   const res = await fetch('/api/admin/knockout/qf-draw', {
@@ -314,6 +314,24 @@ export async function adminSetQuarterFinalDraw(token: string, pairs: [string, st
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Failed to save the quarter-final draw');
+  return data;
+}
+
+/**
+ * Semi-final pairings drawn by lot, as SF1 and SF2. Only the 4
+ * quarter-final winners can be drawn.
+ */
+export async function adminSetSemiFinalDraw(token: string, pairs: [string, string][]) {
+  const res = await fetch('/api/admin/knockout/sf-draw', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ pairs }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to save the semi-final draw');
   return data;
 }
 
