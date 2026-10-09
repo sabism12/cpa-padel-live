@@ -1,7 +1,10 @@
 import {StrictMode, lazy, Suspense} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
+import { registerServiceWorker } from './appUpdate';
 import './index.css';
+
+registerServiceWorker();
 
 // The Live Group Draw is its own lazy-loaded chunk: the homepage and every
 // existing page keep loading exactly the same code as before.

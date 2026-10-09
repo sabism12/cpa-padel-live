@@ -12,7 +12,8 @@ import {
 } from '../types';
 import { EnrichedMatch } from '../api';
 import { StaffRole } from '../staffSession';
-import { ArrowLeft, ClipboardEdit, Lock, LogOut, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ClipboardEdit, Lock, LogOut, RefreshCw, ShieldCheck } from 'lucide-react';
+import { useUpdateReady } from '../appUpdate';
 
 export type StaffView = 'score' | 'admin';
 
@@ -55,6 +56,9 @@ export const StaffPortal: React.FC<StaffPortalProps> = ({
   onExit,
   onRefreshData,
 }) => {
+  // A new deploy took over while this panel was open (see appUpdate.ts).
+  const updateReady = useUpdateReady();
+
   // AuthModal calls onSuccess() and then onClose() on a successful sign-in.
   // This flag lets us tell a real sign-in apart from the user dismissing the dialog.
   const loggedInRef = useRef(false);
@@ -153,6 +157,29 @@ export const StaffPortal: React.FC<StaffPortalProps> = ({
           </div>
         </div>
       </header>
+
+      {/* New deploy: staff pages never reload by themselves, so scores in
+          flight or a half-typed result are never lost. */}
+      {updateReady && (
+        <div className="px-3 sm:px-6 lg:px-8 pt-3">
+          <div
+            role="status"
+            className="max-w-7xl mx-auto rounded-2xl bg-white border-2 border-blue-300 shadow-md px-4 py-3 flex items-center gap-3"
+          >
+            <RefreshCw className="w-5 h-5 text-blue-600 shrink-0" />
+            <p className="flex-1 min-w-0 text-sm font-semibold text-blue-900">
+              A new version of the site is ready. Reload when you're between matches.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="shrink-0 min-h-10 px-4 rounded-full bg-[#0A0A0F] hover:bg-slate-800 text-[#CCFF00] text-[11px] font-mono font-bold uppercase tracking-widest cursor-pointer"
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Terminal content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">

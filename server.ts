@@ -17,6 +17,7 @@ import { createSyncRouter } from './server/syncRoutes';
 import { createRelayToken, isRelayConfigured, requireRelay } from './server/relayAuth';
 import { gatewayRelay } from './server/gateway';
 import { Match, Group, Team, Court } from './src/types';
+import { CLIENT_VERSION_HEADER, OUTDATED_CLIENT_NOTICE } from './src/clientVersion';
 
 /** Hostname-only view of a URL, safe to return in diagnostics. */
 function safeHost(url: string): string | null {
@@ -242,9 +243,14 @@ async function startServer() {
   // 🚀 FAST BOOTSTRAP ENDPOINT: Bundles all tournament data into a single 1ms in-memory response
   app.get('/api/bootstrap', (req: Request, res: Response) => {
     const settings = tournamentStore.getSettings();
+    // Copies of the site loaded before it could update itself send no version
+    // header and never reload on their own: show them, in place of the
+    // tournament name on the Scores page, how to get the new version.
+    const outdatedClient = !req.get(CLIENT_VERSION_HEADER);
+    res.setHeader('Vary', CLIENT_VERSION_HEADER);
     const safeSettings = {
       id: settings.id,
-      name: settings.name,
+      name: outdatedClient ? OUTDATED_CLIENT_NOTICE : settings.name,
       location: settings.location,
       date: settings.date,
       scoring: settings.scoring,

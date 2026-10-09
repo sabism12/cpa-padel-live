@@ -23,11 +23,17 @@ import { KnockoutView } from './components/KnockoutView';
 import { TeamSearchView } from './components/TeamSearchView';
 import { StaffPortal } from './components/StaffPortal';
 import { RefreshCw } from 'lucide-react';
+import { OUTDATED_CLIENT_NOTICE } from './clientVersion';
 
 function getStoredTournamentCache(): any | null {
   try {
     const saved = localStorage.getItem('cpa_tournament_cache');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const data = JSON.parse(saved);
+      // An old copy of the site may have cached the "reopen" notice as the name.
+      if (data?.settings?.name === OUTDATED_CLIENT_NOTICE) delete data.settings.name;
+      return data;
+    }
   } catch {
     // ignore
   }

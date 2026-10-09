@@ -1,4 +1,5 @@
 import { TournamentSettings, Group, Team, Court, Match, StandingsRow } from './types';
+import { CLIENT_VERSION, CLIENT_VERSION_HEADER } from './clientVersion';
 
 export interface TournamentData {
   settings: TournamentSettings;
@@ -39,7 +40,7 @@ export async function fetchBootstrap(retries = 2): Promise<BootstrapData> {
   let lastError: any = null;
   for (let i = 0; i < retries; i++) {
     try {
-      const res = await fetch('/api/bootstrap');
+      const res = await fetch('/api/bootstrap', { headers: { [CLIENT_VERSION_HEADER]: CLIENT_VERSION } });
       if (res.ok) {
         return await res.json();
       }

@@ -12,8 +12,12 @@ export default defineConfig(() => {
       // PWA: installable app shell that works offline. Deliberately caches ONLY
       // static build assets — never API responses, auth tokens, or secrets.
       VitePWA({
+        // A new deploy's service worker takes over open pages at once
+        // (skipWaiting + clientsClaim). src/appUpdate.ts registers it, checks
+        // for new deploys while a page is open, and reloads public pages /
+        // shows a reload bar on staff pages once the new version is in.
         registerType: 'autoUpdate',
-        injectRegister: 'auto',
+        injectRegister: false,
         devOptions: { enabled: false },
         includeAssets: ['cpa logo final.svg', 'cpa logo.svg'],
         manifest: {
@@ -44,12 +48,13 @@ export default defineConfig(() => {
           ],
           // Never let a service worker intercept API traffic.
           navigateFallbackDenylist: [/^\/api\//, /^\/draw\/admin/],
+          // API requests have NO route here, so the service worker never
+          // handles them and they go straight to the network (never cached).
+          // Do not add a route for /api/: routing the always-open live-events
+          // stream through the worker keeps that fetch "in flight", and the
+          // browser then never lets a new deploy's worker take over while a
+          // page is open.
           runtimeCaching: [
-            {
-              // Network-only for every API call: no caching of live data or tokens.
-              urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
-              handler: 'NetworkOnly',
-            },
             {
               // Large optional images: serve from cache when offline, but do
               // not block first load downloading them.
@@ -59,6 +64,10 @@ export default defineConfig(() => {
             },
           ],
           cleanupOutdatedCaches: true,
+          // Take over open pages as soon as a new deploy is installed. The
+          // plugin only sets this itself when it injects its own register
+          // script, and src/appUpdate.ts registers the worker instead.
+          skipWaiting: true,
           clientsClaim: true,
           // Do not precache the server bundle or its source map.
           globIgnores: ['server.cjs', 'server.cjs.map'],
